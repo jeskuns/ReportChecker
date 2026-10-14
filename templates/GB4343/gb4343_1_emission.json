@@ -1,0 +1,143 @@
+{
+  "standard": "GB 4343.1-2018",
+  "clause": "1",
+  "title": "EMC",
+  "description": "电磁兼容发射测试",
+  "version": "1.2",
+  "tables": [
+    {
+      "title": "测试数据及判定 - 准峰值Qp",
+      "data_grid": true,
+      "headers": [
+        {"label": "频率点(MHz)"},
+        {"label": "测量值(DBuV)"},
+        {"label": "限制(DBuV)"},
+        {"label": "余量(dB)"},
+        {"label": "判定"}
+      ],
+      "fields": [
+        {"name": "qp_row_1", "type": "number_array", "description": "准峰值行1", "array_size": 5},
+        {"name": "qp_row_2", "type": "number_array", "description": "准峰值行2", "array_size": 5},
+        {"name": "qp_row_3", "type": "number_array", "description": "准峰值行3", "array_size": 5},
+        {"name": "qp_row_4", "type": "number_array", "description": "准峰值行4", "array_size": 5},
+        {"name": "qp_row_5", "type": "number_array", "description": "准峰值行5", "array_size": 5},
+        {
+          "name": "qp_margin_calc",
+          "type": "number_array",
+          "description": "余量计算值(dB)",
+          "array_size": 5,
+          "unit": "dB",
+          "computed": true
+        }
+      ]
+    },
+    {
+      "title": "测试数据及判定 - 平均值AV",
+      "data_grid": true,
+      "headers": [
+        {"label": "频率点(MHz)"},
+        {"label": "测量值(DBuV)"},
+        {"label": "限制(DBuV)"},
+        {"label": "余量(dB)"},
+        {"label": "判定"}
+      ],
+      "fields": [
+        {"name": "av_row_1", "type": "number_array", "description": "平均值行1", "array_size": 5},
+        {"name": "av_row_2", "type": "number_array", "description": "平均值行2", "array_size": 5},
+        {"name": "av_row_3", "type": "number_array", "description": "平均值行3", "array_size": 5},
+        {"name": "av_row_4", "type": "number_array", "description": "平均值行4", "array_size": 5},
+        {"name": "av_row_5", "type": "number_array", "description": "平均值行5", "array_size": 5},
+        {
+          "name": "av_margin_calc",
+          "type": "number_array",
+          "description": "余量计算值(dB)",
+          "array_size": 5,
+          "unit": "dB",
+          "computed": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "type": "formula_verify",
+      "description": "Qp 行1 余量",
+      "formula": "qp_row_1_1 - qp_row_1_2",
+      "output_field": "qp_margin_calc_0",
+      "report_field": "qp_row_1_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "Qp 行2 余量",
+      "formula": "qp_row_2_1 - qp_row_2_2",
+      "output_field": "qp_margin_calc_1",
+      "report_field": "qp_row_2_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "Qp 行3 余量",
+      "formula": "qp_row_3_1 - qp_row_3_2",
+      "output_field": "qp_margin_calc_2",
+      "report_field": "qp_row_3_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "Qp 行4 余量",
+      "formula": "qp_row_4_1 - qp_row_4_2",
+      "output_field": "qp_margin_calc_3",
+      "report_field": "qp_row_4_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "Qp 行5 余量",
+      "formula": "qp_row_5_1 - qp_row_5_2",
+      "output_field": "qp_margin_calc_4",
+      "report_field": "qp_row_5_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "AV 行1 余量",
+      "formula": "av_row_1_1 - av_row_1_2",
+      "output_field": "av_margin_calc_0",
+      "report_field": "av_row_1_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "AV 行2 余量",
+      "formula": "av_row_2_1 - av_row_2_2",
+      "output_field": "av_margin_calc_1",
+      "report_field": "av_row_2_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "AV 行3 余量",
+      "formula": "av_row_3_1 - av_row_3_2",
+      "output_field": "av_margin_calc_2",
+      "report_field": "av_row_3_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "AV 行4 余量",
+      "formula": "av_row_4_1 - av_row_4_2",
+      "output_field": "av_margin_calc_3",
+      "report_field": "av_row_4_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "AV 行5 余量",
+      "formula": "av_row_5_1 - av_row_5_2",
+      "output_field": "av_margin_calc_4",
+      "report_field": "av_row_5_3",
+      "tolerance_pct": 5.0
+    }
+  ]
+}

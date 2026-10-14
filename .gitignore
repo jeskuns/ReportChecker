@@ -1,0 +1,21 @@
+# ---- 大型本地依赖与运行时（不入库）----
+deps/
+python/
+models/
+
+# ---- 构建产物与输出 ----
+build/
+dist/
+result/
+reports/
+*.exe
+*.pyd
+*.pyc
+__pycache__/
+*.log
+
+# ---- 系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

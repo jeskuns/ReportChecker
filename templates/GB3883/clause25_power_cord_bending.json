@@ -1,0 +1,58 @@
+{
+  "standard": "GB 3883.1-2014",
+  "clause": "25",
+  "title": "电缆弯曲测试",
+  "description": "电缆、护套弯曲测试",
+  "version": "1.1",
+  "tables": [
+    {
+      "title": "提拉测试",
+      "fields": [
+        {"name": "pull_test_force", "type": "number", "description": "测试拉力(N)", "unit": "N"},
+        {"name": "pull_test_torque", "type": "number", "description": "测试扭矩(N·m)", "unit": "N·m"},
+        {"name": "pull_test_count", "type": "number", "description": "提拉次数", "unit": ""},
+        {"name": "pull_test_result", "type": "text", "description": "测试结果", "unit": ""}
+      ]
+    },
+    {
+      "title": "弯曲测试",
+      "fields": [
+        {"name": "bend_item", "type": "text", "description": "弯曲项目", "unit": ""},
+        {"name": "bend_handle", "type": "text", "description": "测试手柄", "unit": ""},
+        {"name": "bend_cable_plate", "type": "text", "description": "电缆压板", "unit": ""},
+        {"name": "bend_plate_dir", "type": "text", "description": "压板方向", "unit": ""},
+        {"name": "bend_weight", "type": "number", "description": "悬挂重量", "unit": ""},
+        {"name": "bend_count", "type": "number", "description": "弯曲次数", "unit": ""},
+        {"name": "bend_wire_count", "type": "number", "description": "导线根数", "unit": ""},
+        {"name": "bend_break_count", "type": "number", "description": "折断根数", "unit": ""},
+        {"name": "bend_equipment", "type": "text", "description": "测试设备", "unit": ""},
+        {"name": "bend_break_rate", "type": "number", "description": "折断率(%) 计算值", "unit": "%", "computed": true}
+      ]
+    },
+    {
+      "title": "曲率测试",
+      "fields": [
+        {"name": "curve_temp", "type": "number", "description": "环境温度(℃)", "unit": "℃"},
+        {"name": "curve_weight", "type": "number", "description": "试物重量(Kg)", "unit": "Kg"},
+        {"name": "curve_radius", "type": "number", "description": "曲率半径", "unit": ""},
+        {"name": "curve_result", "type": "text", "description": "测试结果", "unit": ""}
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "type": "formula_verify",
+      "description": "导线折断率",
+      "formula": "bend_break_count / bend_wire_count * 100",
+      "output_field": "bend_break_rate",
+      "tolerance_pct": 0
+    },
+    {
+      "type": "limit",
+      "description": "折断率限值(<10%)",
+      "field": "bend_break_rate",
+      "operator": "<",
+      "value": 10
+    }
+  ]
+}

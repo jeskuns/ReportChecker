@@ -1,0 +1,234 @@
+{
+  "standard": "GB 3883.1-2014",
+  "clause": "12",
+  "title": "发热",
+  "description": "温升试验",
+  "version": "2.1",
+  "tables": [
+    {
+      "title": "输入输出参数",
+      "data_grid": true,
+      "headers": [
+        {"label": "电压U(V)"},
+        {"label": "频率f(Hz)"},
+        {"label": "电流I(A)"},
+        {"label": "输入功率P1(W)"},
+        {"label": "输出功率P2(W)"},
+        {"label": "转速n(r/min)"},
+        {"label": "转矩T(N·m)"},
+        {"label": "效率η(%)"},
+        {"label": "功率因素cosφ"}
+      ],
+      "fields": [
+        {
+          "name": "no_load",
+          "type": "number_array",
+          "description": "空载",
+          "array_size": 9,
+          "unit": ""
+        },
+        {
+          "name": "rated_load_1",
+          "type": "number_array",
+          "description": "额定负载1",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        },
+        {
+          "name": "rated_load_2",
+          "type": "number_array",
+          "description": "额定负载2",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        },
+        {
+          "name": "voltage_0_94_1",
+          "type": "number_array",
+          "description": "0.94倍额定电压1",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        },
+        {
+          "name": "voltage_0_94_2",
+          "type": "number_array",
+          "description": "0.94倍额定电压2",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        },
+        {
+          "name": "voltage_1_06_1",
+          "type": "number_array",
+          "description": "1.06倍额定电压1",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        },
+        {
+          "name": "voltage_1_06_2",
+          "type": "number_array",
+          "description": "1.06倍额定电压2",
+          "array_size": 9,
+          "unit": "",
+          "show_label": true
+        }
+      ]
+    },
+    {
+      "title": "电阻法测量结果",
+      "fields": [
+        {
+          "name": "start_room_temp",
+          "type": "number",
+          "description": "开始室温 t1（℃）",
+          "unit": "℃"
+        },
+        {
+          "name": "end_room_temp",
+          "type": "number",
+          "description": "结束时室温 t2（℃）",
+          "unit": "℃"
+        }
+      ]
+    },
+    {
+      "title": "电阻数值",
+      "data_grid": true,
+      "headers": [
+        {"label": "冷态R1(Ω)"},
+        {"label": "热态R2(Ω) 0.94倍"},
+        {"label": "热态R2(Ω) 1倍"},
+        {"label": "热态R2(Ω) 1.06倍"}
+      ],
+      "fields": [
+        {
+          "name": "stator_resistance",
+          "type": "number_array",
+          "description": "定子",
+          "array_size": 4,
+          "unit": "Ω"
+        },
+        {
+          "name": "rotor_resistance",
+          "type": "number_array",
+          "description": "转子",
+          "array_size": 4,
+          "unit": "Ω"
+        }
+      ]
+    },
+    {
+      "title": "温升数值",
+      "data_grid": true,
+      "headers": [
+        {"label": "转子 0.94倍"},
+        {"label": "转子 1倍"},
+        {"label": "转子 1.06倍"},
+        {"label": "定子 0.94倍"},
+        {"label": "定子 1倍"},
+        {"label": "定子 1.06倍"}
+      ],
+      "fields": [
+        {
+          "name": "temperature_rise",
+          "type": "number_array",
+          "description": "温升Δt（K）报告值",
+          "array_size": 6,
+          "unit": "K"
+        },
+        {
+          "name": "temperature_rise_calc",
+          "type": "number_array",
+          "description": "温升Δt（K）计算值",
+          "array_size": 6,
+          "unit": "K",
+          "computed": true
+        }
+      ]
+    },
+    {
+      "title": "热电偶法测量结果",
+      "data_grid": true,
+      "headers": [
+        {"label": "机壳"},
+        {"label": "刷握"},
+        {"label": "定子线圈出风口"},
+        {"label": "定子线圈进风口"},
+        {"label": "开关"},
+        {"label": "电容"},
+        {"label": "调速板"},
+        {"label": "变压器"},
+        {"label": "其他"}
+      ],
+      "fields": [
+        {
+          "name": "thermocouple_temperature",
+          "type": "number_array",
+          "description": "热态温度(℃)",
+          "array_size": 9,
+          "unit": "℃"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "type": "formula_verify",
+      "description": "转子温升 0.94倍",
+      "formula": "(rotor_resistance_1 - rotor_resistance_0) / rotor_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_0",
+      "report_field": "temperature_rise_0",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "转子温升 1倍",
+      "formula": "(rotor_resistance_2 - rotor_resistance_0) / rotor_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_1",
+      "report_field": "temperature_rise_1",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "转子温升 1.06倍",
+      "formula": "(rotor_resistance_3 - rotor_resistance_0) / rotor_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_2",
+      "report_field": "temperature_rise_2",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "定子温升 0.94倍",
+      "formula": "(stator_resistance_1 - stator_resistance_0) / stator_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_3",
+      "report_field": "temperature_rise_3",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "定子温升 1倍",
+      "formula": "(stator_resistance_2 - stator_resistance_0) / stator_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_4",
+      "report_field": "temperature_rise_4",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "formula_verify",
+      "description": "定子温升 1.06倍",
+      "formula": "(stator_resistance_3 - stator_resistance_0) / stator_resistance_0 * (234.5 + start_room_temp) - (end_room_temp - start_room_temp)",
+      "output_field": "temperature_rise_calc_5",
+      "report_field": "temperature_rise_5",
+      "tolerance_pct": 5.0
+    },
+    {
+      "type": "limit",
+      "description": "温升限值",
+      "field": "temperature_rise",
+      "operator": "<=",
+      "value": 105
+    }
+  ]
+}
