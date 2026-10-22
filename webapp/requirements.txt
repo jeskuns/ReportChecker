@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+PyMuPDF>=1.23.10
+python-multipart>=0.0.9
+requests>=2.31
+python-docx>=1.1.0
+alibabacloud-docmind-api20220711>=1.4.15
+alibabacloud-tea-openapi>=0.4.6
+alibabacloud-tea-util>=0.3.15

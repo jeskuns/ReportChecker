@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ReportChecker · 报告校验</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⚡</span>
+    <span class="title">ReportChecker</span>
+    <span class="subtitle">电动工具测试报告校验</span>
+  </div>
+  <button id="btnSettings" class="btn btn-ghost">API 设置</button>
+</header>
+
+<main class="layout">
+
+  <!-- 左栏：上传 + 预览 -->
+  <section class="pane pane-left">
+    <div id="dropZone" class="dropzone">
+      <input type="file" id="fileInput" accept=".pdf,.docx,.jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp" hidden>
+      <div class="dz-icon">📄</div>
+      <div class="dz-text">点击选择或拖入报告文件</div>
+      <div class="dz-hint">支持 PDF / Word / 图片（手机可直接拍照）</div>
+    </div>
+
+    <div id="docBar" class="docbar hidden">
+      <div class="doc-info">
+        <div id="docName" class="doc-name"></div>
+        <div id="docMeta" class="doc-meta"></div>
+      </div>
+      <button id="btnReupload" class="btn btn-ghost btn-sm">重新上传</button>
+    </div>
+
+    <div id="previewWrap" class="preview hidden">
+      <img id="previewImg" alt="页面预览">
+      <div class="preview-nav">
+        <button id="btnPrev" class="btn btn-nav">‹</button>
+        <span id="pageIndicator" class="page-indicator">1 / 1</span>
+        <button id="btnNext" class="btn btn-nav">›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右栏：模板 + 校验 + 结果 -->
+  <section class="pane pane-right">
+    <div class="section-title">选择测试项目</div>
+    <div id="templateList" class="template-list">
+      <div class="loading">加载模板中...</div>
+    </div>
+
+    <button id="btnCheck" class="btn btn-primary btn-block" disabled>开始校验</button>
+
+    <div id="progressBox" class="progress hidden">
+      <div class="spinner"></div>
+      <span id="progressText">处理中...</span>
+    </div>
+
+    <div id="resultArea"></div>
+  </section>
+
+</main>
+
+<!-- 识别与接口设置弹窗 -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-title">识别与接口设置</div>
+
+    <label class="form-label">识别引擎</label>
+    <select id="cfgEngine" class="form-input"></select>
+    <div id="cfgEngineNote" class="form-hint"></div>
+
+    <div id="sectionDocmind">
+      <label class="form-label">AccessKey ID</label>
+      <input id="cfgAkId" class="form-input" type="text" placeholder="LTAI..." autocomplete="off">
+      <div id="cfgAkIdHint" class="form-hint"></div>
+      <label class="form-label">AccessKey Secret</label>
+      <input id="cfgAkSecret" class="form-input" type="password" placeholder="****" autocomplete="off">
+      <div id="cfgAkSecretHint" class="form-hint"></div>
+      <div class="form-hint">用于调用阿里云文档智能 DocMind，识别后由本地规则抽取字段，无需 sk- 开头的 API Key。</div>
+    </div>
+
+    <div id="sectionAi" class="hidden">
+      <label class="form-label">服务商</label>
+      <select id="cfgProvider" class="form-input"></select>
+      <div id="cfgProviderNote" class="form-hint"></div>
+
+      <label class="form-label">Base URL</label>
+      <input id="cfgBase" class="form-input" type="text" placeholder="https://.../v1">
+      <label class="form-label">模型名称</label>
+      <input id="cfgModel" class="form-input" type="text" list="cfgModelList" placeholder="qwen-vl-max">
+      <datalist id="cfgModelList"></datalist>
+
+      <label class="form-label">API Key</label>
+      <input id="cfgKey" class="form-input" type="password" placeholder="sk-..." autocomplete="off">
+      <div id="cfgKeyHint" class="form-hint"></div>
+    </div>
+
+    <div id="cfgTestResult" class="test-result hidden"></div>
+
+    <div class="modal-actions">
+      <button id="btnCfgTest" class="btn btn-ghost">测试连接</button>
+      <button id="btnCfgCancel" class="btn btn-ghost">取消</button>
+      <button id="btnCfgSave" class="btn btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

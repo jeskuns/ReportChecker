@@ -19,3 +19,15 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# ---- Web 版运行时 ----
+webapp/uploads/
+webapp/api_config.json
+
+# ---- 桌面版 AI 模型配置（含密钥）----
+ai_config.json
+
+# ---- Cloudflare 网页版 ----
+cloudflare/node_modules/
+cloudflare/.wrangler/
+cloudflare/.dev.vars

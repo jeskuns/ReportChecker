@@ -1,0 +1,247 @@
+:root {
+  --primary: #d43a2f;
+  --primary-dark: #b32d24;
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1f2329;
+  --text-sec: #6b7280;
+  --border: #e3e6ea;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.hidden { display: none !important; }
+
+/* ───── 顶栏 ───── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.logo { font-size: 20px; }
+.title { font-weight: 700; font-size: 17px; }
+.subtitle { color: var(--text-sec); font-size: 12px; }
+
+/* ───── 布局 ───── */
+.layout {
+  display: flex; flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (min-width: 900px) {
+  .layout { flex-direction: row; align-items: flex-start; }
+  .pane-left { flex: 0 0 46%; position: sticky; top: 64px; }
+  .pane-right { flex: 1; }
+}
+
+.pane {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  width: 100%;
+}
+
+/* ───── 按钮 ───── */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { opacity: .75; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:disabled { background: #e5a39e; border-color: #e5a39e; cursor: not-allowed; }
+.btn-ghost { border-color: var(--border); color: var(--text-sec); }
+.btn-block { width: 100%; padding: 13px; font-size: 16px; margin-top: 12px; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-nav {
+  width: 44px; height: 44px; border-radius: 50%;
+  font-size: 22px; line-height: 1; padding: 0;
+}
+
+/* ───── 上传区 ───── */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 34px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone.dragover { border-color: var(--primary); background: #fdf0ef; }
+.dz-icon { font-size: 38px; margin-bottom: 8px; }
+.dz-text { font-weight: 600; }
+.dz-hint { color: var(--text-sec); font-size: 12px; margin-top: 6px; }
+
+.docbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 10px; padding: 10px 12px;
+  background: #f8f9fb; border-radius: 8px; border: 1px solid var(--border);
+}
+.doc-name { font-weight: 600; font-size: 14px; word-break: break-all; }
+.doc-meta { color: var(--text-sec); font-size: 12px; margin-top: 2px; }
+
+/* ───── 预览 ───── */
+.preview { margin-top: 12px; text-align: center; }
+.preview img {
+  max-width: 100%; max-height: 62vh;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #eee;
+  touch-action: pan-y;
+}
+.preview-nav {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-top: 10px;
+}
+.page-indicator { color: var(--text-sec); font-size: 14px; min-width: 60px; }
+
+/* ───── 模板选择 ───── */
+.section-title { font-weight: 700; margin-bottom: 10px; }
+.template-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.tmpl-group { color: var(--text-sec); font-size: 12px; margin: 8px 0 2px; font-weight: 600; }
+.tmpl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.tmpl-item.selected { border-color: var(--primary); background: #fdf3f2; }
+.tmpl-item .check {
+  width: 20px; height: 20px; border-radius: 5px;
+  border: 1.5px solid #c4c9d0; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px;
+}
+.tmpl-item.selected .check { background: var(--primary); border-color: var(--primary); }
+.tmpl-item .tmpl-name { font-weight: 600; font-size: 14px; }
+.tmpl-item .tmpl-std { color: var(--text-sec); font-size: 12px; }
+.loading { color: var(--text-sec); text-align: center; padding: 20px; }
+
+/* ───── 进度 ───── */
+.progress {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px; padding: 12px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+  color: #1d4ed8; font-size: 13px;
+}
+.spinner {
+  width: 18px; height: 18px; flex-shrink: 0;
+  border: 2.5px solid #93c5fd; border-top-color: #1d4ed8;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ───── 结果 ───── */
+.result-card {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.result-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 12px 14px; background: #f8f9fb;
+  cursor: pointer;
+}
+.result-title { font-weight: 700; font-size: 14px; }
+.result-std { color: var(--text-sec); font-size: 12px; font-weight: 400; margin-left: 6px; }
+.badges { display: flex; gap: 6px; flex-shrink: 0; }
+.badge {
+  font-size: 12px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; color: #fff;
+}
+.badge.pass { background: var(--success); }
+.badge.warn { background: var(--warning); }
+.badge.fail { background: var(--danger); }
+.result-body { padding: 6px 14px 12px; }
+.result-error { color: var(--danger); padding: 12px 14px; font-size: 13px; }
+
+.check-item {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f1f3;
+  font-size: 13px; line-height: 1.5;
+}
+.check-item:last-child { border-bottom: none; }
+.check-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.check-dot.pass { background: var(--success); }
+.check-dot.warn { background: var(--warning); }
+.check-dot.fail { background: var(--danger); }
+.check-msg { flex: 1; word-break: break-all; }
+
+.extracted-toggle {
+  margin-top: 8px; font-size: 13px; color: var(--primary);
+  cursor: pointer; user-select: none;
+}
+.extracted-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+.extracted-table th, .extracted-table td {
+  border: 1px solid var(--border); padding: 5px 8px; text-align: left;
+}
+.extracted-table th { background: #f8f9fb; color: var(--text-sec); font-weight: 600; }
+
+/* ───── 弹窗 ───── */
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal-card {
+  background: var(--card); border-radius: 12px;
+  padding: 20px; width: 100%; max-width: 440px;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-title { font-weight: 700; font-size: 16px; margin-bottom: 14px; }
+.form-label { display: block; font-size: 13px; color: var(--text-sec); margin: 10px 0 4px; }
+.form-input {
+  width: 100%; padding: 9px 11px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 8px; outline: none;
+  background: var(--card); color: var(--text);
+}
+.form-input:focus { border-color: var(--primary); }
+.form-hint { font-size: 12px; color: var(--text-sec); margin-top: 4px; line-height: 1.5; }
+.result-engine { font-size: 12px; color: var(--text-sec); margin: 2px 0 8px; }
+.test-result {
+  margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+  font-size: 13px; line-height: 1.6; word-break: break-all;
+}
+.test-result.ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.test-result.fail { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+
+/* ───── Toast ───── */
+.toast {
+  position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+  background: #1f2329; color: #fff;
+  padding: 10px 18px; border-radius: 8px;
+  font-size: 14px; z-index: 60;
+  max-width: 86vw; text-align: center;
+}

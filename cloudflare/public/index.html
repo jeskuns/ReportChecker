@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d43a2f">
+<title>ReportChecker · 报告校验</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="mark">RC</span><span>ReportChecker</span></div>
+  <button id="btnOpen" class="btn btn-ghost btn-sm" type="button">打开报告</button>
+  <div class="pager">
+    <button id="btnPrev" class="pg" type="button" title="上一页">‹</button>
+    <span id="pageLabel" class="page-label">0/0</span>
+    <button id="btnNext" class="pg" type="button" title="下一页">›</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="model-info">模型：<span id="modelName">读取中…</span></div>
+  <button id="btnSettings" class="btn btn-ghost btn-sm" type="button">接口设置</button>
+</header>
+
+<main class="layout">
+  <section class="viewer">
+    <div id="dropZone" class="drop">
+      <p class="drop-title">点击打开或拖入报告</p>
+      <p class="drop-sub">支持 PDF、JPG、PNG，手机可直接拍照</p>
+    </div>
+    <img id="previewImg" class="preview hidden" alt="报告页面">
+    <div id="fileBar" class="file-bar hidden"></div>
+  </section>
+
+  <aside class="side">
+    <div class="side-head">
+      <span>测试项目</span>
+      <span id="tmplCount" class="muted"></span>
+    </div>
+    <div id="tmplList" class="tmpl-list"></div>
+    <button id="btnCheck" class="btn btn-primary" type="button" disabled>开始校验</button>
+    <div class="progress hidden" id="progressBox">
+      <div class="track"><div id="progressBar"></div></div>
+      <p id="progressText" class="progress-text"></p>
+    </div>
+    <div id="results" class="results"></div>
+  </aside>
+</main>
+
+<footer class="statusbar">
+  <span id="statusText">就绪 — 请先打开报告文件</span>
+</footer>
+
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-title">接口设置</div>
+    <div id="apiStatus" class="status-line">读取中…</div>
+    <label class="form-label">访问码</label>
+    <input id="accessCode" class="form-input" type="password" placeholder="未启用可留空" autocomplete="off">
+    <div class="form-hint">仅保存在本机浏览器。</div>
+    <div class="modal-actions">
+      <button id="btnCancelSettings" class="btn btn-ghost" type="button">关闭</button>
+      <button id="btnSaveSettings" class="btn btn-primary" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
+  }
+</script>
+<script src="templates.js"></script>
+<script src="rules.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

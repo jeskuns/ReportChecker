@@ -68,6 +68,15 @@ os.environ['PADDLE_PDX_CACHE_HOME'] = OCR_MODEL_DIR
 os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 
 
+def _ai_configured() -> bool:
+    """AI 视觉模型是否已配置（地址 + 模型 + Key 齐全）"""
+    try:
+        from ai_config import is_configured
+        return is_configured()
+    except Exception:
+        return False
+
+
 # =========================== OCR 引擎基类 ===========================
 
 class BaseOCREngine:
@@ -698,6 +707,7 @@ class MultiOCREngine(BaseOCREngine):
             ("Tesseract", TesseractOCREngine),
             ("PaddleOCR", PaddleOCREngine),
             ("增强预处理", None),  # 占位，依赖 PaddleOCR 实例化后补充
+            ("AI 视觉模型", None),  # 占位，仅手动选择时实例化（避免自动级联产生调用费用）
         ]
         self._engines: List[BaseOCREngine] = []
         self._pending_names: List[str] = []  # 尚未实例化的重引擎名（PaddleOCR/增强预处理）
@@ -766,7 +776,7 @@ class MultiOCREngine(BaseOCREngine):
         """
         # 已初始化则直接用真实状态
         if self._initialized:
-            return self._available
+            return self._available or _ai_configured()
     
         # RapidOCR：检查 onnx 模型文件是否齐全（不 import，仅查文件系统）
         try:
@@ -800,7 +810,11 @@ class MultiOCREngine(BaseOCREngine):
                 return True
         except Exception:
             pass
-    
+
+        # AI 视觉模型：已配置即视为可用
+        if _ai_configured():
+            return True
+
         return False
 
     def get_engine_list(self) -> List[Dict[str, Any]]:
@@ -858,6 +872,18 @@ class MultiOCREngine(BaseOCREngine):
                 ok, detail = self._check_paddleocr_detail()
                 info["available"] = ok
                 info["detail"] = detail
+            elif name == "AI 视觉模型":
+                try:
+                    from ai_config import is_configured, load_ai_config
+                    cfg = load_ai_config()
+                    if is_configured(cfg):
+                        info["available"] = True
+                        info["detail"] = f"模型 {cfg['model']} @ {cfg['base_url']}"
+                    else:
+                        info["available"] = False
+                        info["detail"] = "未配置，请在「设置 → AI 模型设置」中填写"
+                except Exception as e:
+                    info["detail"] = f"检测异常: {e}"
             result.append(info)
         return result
 
@@ -926,10 +952,39 @@ class MultiOCREngine(BaseOCREngine):
         """
         if not engine_name or engine_name == "自动":
             self._forced_engine_name = None
+            # 从 AI 切回自动时，把当前引擎还原为本地 OCR，避免自动模式继续调用 AI
+            if (self._current_engine is not None
+                    and self._current_engine.get_engine_name() == "AI 视觉模型"):
+                self._current_engine = next(
+                    (e for e in self._engines
+                     if e.get_engine_name() != "AI 视觉模型" and e.is_available()),
+                    None)
             return True
 
         self._ensure_initialized()
         self._forced_engine_name = engine_name
+
+        # AI 视觉模型：按需实例化（不参与自动级联）
+        if engine_name == "AI 视觉模型":
+            existed = next((e for e in self._engines
+                            if e.get_engine_name() == "AI 视觉模型"), None)
+            if existed is None:
+                try:
+                    from ai_ocr import AIVisionEngine
+                    existed = AIVisionEngine()
+                    if existed.is_available():
+                        self._engines.append(existed)
+                    else:
+                        self._forced_engine_name = None
+                        return False
+                except Exception:
+                    self._forced_engine_name = None
+                    return False
+            if existed.is_available():
+                self._current_engine = existed
+                return True
+            self._forced_engine_name = None
+            return False
 
         # 尝试找到对应引擎并设为当前引擎
         # 先在已初始化的引擎中找
@@ -974,7 +1029,8 @@ class MultiOCREngine(BaseOCREngine):
             识别文本；全部失败返回 None
         """
         self._ensure_initialized()
-        if not self._available:
+        # 手动选中 AI 视觉模型时不依赖本地引擎是否可用
+        if not self._available and getattr(self, '_forced_engine_name', None) != "AI 视觉模型":
             return None
 
         # 手动模式：强制使用指定引擎，不级联
@@ -1013,7 +1069,8 @@ class MultiOCREngine(BaseOCREngine):
         # 仅在其失败时再完整级联兜底。
         tried = set()
         prefered = self._current_engine
-        if prefered is not None and prefered.is_available():
+        if (prefered is not None and prefered.is_available()
+                and prefered.get_engine_name() != "AI 视觉模型"):
             name = prefered.get_engine_name()
             tried.add(id(prefered))
             if on_engine_try:
@@ -1048,6 +1105,9 @@ class MultiOCREngine(BaseOCREngine):
             if id(engine) in tried:
                 continue
             name = engine.get_engine_name()
+            # AI 视觉模型按次计费，仅手动选中时使用，不参与自动级联
+            if name == "AI 视觉模型":
+                continue
 
             # 增强预处理：依赖 PaddleOCR，仅当其可用时才在此处实例化追加一次
             if name == "增强预处理" and not engine.is_available():
@@ -1151,6 +1211,8 @@ class MultiOCREngine(BaseOCREngine):
 
         for engine in self._engines:
             name = engine.get_engine_name()
+            if name == "AI 视觉模型":
+                continue  # 仅在手动选中时使用
 
             # 增强预处理：依赖 PaddleOCR，按需实例化
             if name == "增强预处理" and not engine.is_available():
@@ -1237,6 +1299,8 @@ class MultiOCREngine(BaseOCREngine):
         # 收集所有可用引擎
         engines_to_try = []
         for engine in self._engines:
+            if engine.get_engine_name() == "AI 视觉模型":
+                continue  # 仅在手动选中时使用
             if engine.is_available():
                 engines_to_try.append(engine)
 
@@ -2946,6 +3010,9 @@ class ReportChecker:
         # 也会强制加载（甚至联网下载）PaddleOCR 模型，导致打开/校验卡顿。
         # 仅做轻量依赖预检：是否已初始化且可用，或任一引擎的安装基础存在。
         engine = self.ocr_engine
+        # 手动选中 AI 视觉模型时，只要 AI 配置齐全即可用（不依赖本地 OCR）
+        if getattr(engine, 'forced_engine_name', None) == 'AI 视觉模型':
+            return _ai_configured()
         if engine._initialized:
             return engine.is_available()
         return engine.can_be_available()
@@ -3062,6 +3129,10 @@ class ReportChecker:
         """一次 OCR 调用同时获取坐标+文本，并支持级联回调。
         返回 (raw_result, used_engine_name)，避免两次 OCR 翻倍耗时。"""
         try:
+            # 手动选中 AI 视觉模型：模型只返回文字、不提供坐标，跳过本地 OCR 框选
+            if getattr(self.ocr_engine, '_forced_engine_name', None) == "AI 视觉模型":
+                return None, "AI 视觉模型"
+
             # 先通过级联引擎完成一次识别（带回调，确保当前引擎已确定）
             self.ocr_engine._ensure_initialized()
             engine = getattr(self.ocr_engine, '_current_engine', None)

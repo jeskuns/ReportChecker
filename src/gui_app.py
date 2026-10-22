@@ -24,6 +24,10 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer, QPointF, QRectF
 
 from core_checker import ReportChecker
 from config import TEST_CATEGORIES, GUI_CONFIG, get_template_display_name
+from ai_config import (PROVIDER_PRESETS, load_ai_config, mask_key as mask_ai_key,
+                       save_ai_config)
+from ai_ocr import (AI_ENGINE_NAME, extract_fields_from_text,
+                    test_connection as test_ai_connection)
 
 # =========================== 主题常量 ===========================
 
@@ -500,6 +504,167 @@ class SettingsDialog(QDialog):
         return self._opacity
 
 
+# =========================== AI 模型设置对话框 ===========================
+
+class AISettingsDialog(QDialog):
+    """AI 视觉模型设置 — 地址、模型名称、API Key（模型名不写死，可自由修改）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._cfg = load_ai_config()
+        self._init_ui()
+
+    def _init_ui(self):
+        self.setWindowTitle("AI 模型设置")
+        self.setFixedSize(520, 420)
+        self.setStyleSheet(f"background: {Theme.BG()};")
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        card = QWidget()
+        card.setStyleSheet(f"background: {Theme.CARD()}; border-radius: {R};")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(20, 16, 20, 16)
+        card_layout.setSpacing(10)
+
+        title = QLabel("AI 视觉模型识别")
+        title.setFont(QFont("Microsoft YaHei", 13, QFont.Weight.Bold))
+        title.setStyleSheet(f"color: {Theme.TEXT()};")
+        card_layout.addWidget(title)
+
+        hint = QLabel("两段式：识别模型读页面 → 抽取模型出字段。在右下角「模型」选择「AI 视觉模型」后生效。")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"font-size: 12px; color: {Theme.TEXT_SEC()};")
+        card_layout.addWidget(hint)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        self.provider_combo = QComboBox()
+        for key, preset in PROVIDER_PRESETS.items():
+            self.provider_combo.addItem(preset['label'], key)
+        self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
+        form.addRow("服务商", self.provider_combo)
+
+        self.base_url_edit = QLineEdit(self._cfg.get('base_url', ''))
+        self.base_url_edit.setPlaceholderText('https://.../v1')
+        form.addRow("Base URL", self.base_url_edit)
+
+        self.ocr_combo = QComboBox()
+        self.ocr_combo.setEditable(True)
+        self.ocr_combo.setCurrentText(self._cfg.get('ocr_model', ''))
+        form.addRow("识别模型", self.ocr_combo)
+
+        self.extract_combo = QComboBox()
+        self.extract_combo.setEditable(True)
+        self.extract_combo.setCurrentText(self._cfg.get('extract_model', ''))
+        form.addRow("抽取模型", self.extract_combo)
+
+        self.key_edit = QLineEdit()
+        self.key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key_edit.setPlaceholderText(
+            f"已保存 {mask_ai_key(self._cfg.get('api_key', ''))}（留空表示不修改）"
+            if self._cfg.get('api_key') else 'sk-...')
+        form.addRow("API Key", self.key_edit)
+
+        card_layout.addLayout(form)
+
+        self.result_label = QLabel('')
+        self.result_label.setWordWrap(True)
+        self.result_label.setVisible(False)
+        card_layout.addWidget(self.result_label)
+
+        layout.addWidget(card)
+
+        btn_row = QHBoxLayout()
+        test_btn = QPushButton("测试连接")
+        test_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        test_btn.setStyleSheet(Theme.BTN_SECONDARY())
+        test_btn.clicked.connect(self._test_connection)
+        btn_row.addWidget(test_btn)
+        btn_row.addStretch()
+        ok_btn = QPushButton("保存")
+        ok_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        ok_btn.setStyleSheet(Theme.BTN_PRIMARY())
+        ok_btn.clicked.connect(self._save)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        cancel_btn.setStyleSheet(Theme.BTN_SECONDARY())
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(ok_btn)
+        btn_row.addWidget(cancel_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+        self._sync_provider_from_config()
+
+    def _sync_provider_from_config(self):
+        """按已保存的 Base URL 反查服务商，找不到则选自定义"""
+        current = self._cfg.get('base_url', '')
+        for idx in range(self.provider_combo.count()):
+            key = self.provider_combo.itemData(idx)
+            if PROVIDER_PRESETS[key]['base_url'] == current:
+                self.provider_combo.blockSignals(True)
+                self.provider_combo.setCurrentIndex(idx)
+                self.provider_combo.blockSignals(False)
+                self._fill_models(key, keep_current=True)
+                return
+        self.provider_combo.blockSignals(True)
+        self.provider_combo.setCurrentIndex(self.provider_combo.count() - 1)
+        self.provider_combo.blockSignals(False)
+        self.ocr_combo.clear()
+        self.extract_combo.clear()
+
+    def _fill_models(self, provider: str, keep_current: bool = False):
+        ocr_cur = self.ocr_combo.currentText() if keep_current else ''
+        ext_cur = self.extract_combo.currentText() if keep_current else ''
+        models = PROVIDER_PRESETS[provider]['models']
+        for combo, cur in ((self.ocr_combo, ocr_cur), (self.extract_combo, ext_cur)):
+            combo.clear()
+            combo.addItems(models)
+            combo.setCurrentText(cur)
+
+    def _on_provider_changed(self, index: int):
+        key = self.provider_combo.itemData(index)
+        if not key:
+            return
+        preset = PROVIDER_PRESETS[key]
+        self.base_url_edit.setText(preset['base_url'])
+        models = preset['models']
+        for combo in (self.ocr_combo, self.extract_combo):
+            combo.clear()
+            combo.addItems(models)
+            if models:
+                combo.setCurrentText(models[0])
+
+    def _collect(self) -> dict:
+        return {
+            'base_url': self.base_url_edit.text().strip(),
+            'ocr_model': self.ocr_combo.currentText().strip(),
+            'extract_model': self.extract_combo.currentText().strip(),
+            'api_key': self.key_edit.text().strip() or self._cfg.get('api_key', ''),
+        }
+
+    def _test_connection(self):
+        ok, msg = test_ai_connection(self._collect())
+        self.result_label.setVisible(True)
+        color = Theme.SUCCESS() if ok else Theme.DANGER()
+        self.result_label.setStyleSheet(f"font-size: 12px; color: {color};")
+        self.result_label.setText(msg)
+
+    def _save(self):
+        cfg = self._collect()
+        if not cfg['base_url'] or not cfg['ocr_model'] or not cfg['extract_model']:
+            QMessageBox.warning(self, "配置不完整", "请填写 Base URL、识别模型和抽取模型")
+            return
+        save_ai_config(base_url=cfg['base_url'], ocr_model=cfg['ocr_model'],
+                       extract_model=cfg['extract_model'],
+                       api_key=self.key_edit.text().strip() or None)
+        self.accept()
+
+
 # =========================== 工作线程 ===========================
 
 class CheckWorker(QThread):
@@ -967,6 +1132,10 @@ class ReportCheckerApp(QMainWindow):
         appear_act = QAction("外观设置", self)
         appear_act.triggered.connect(self._show_settings)
         settings_menu.addAction(appear_act)
+        ai_act = QAction("AI 模型设置", self)
+        ai_act.setToolTip("配置 AI 视觉模型的接口地址、模型名称与 API Key")
+        ai_act.triggered.connect(self._show_ai_settings)
+        settings_menu.addAction(ai_act)
         menu_bar.addMenu(settings_menu)
 
         help_menu = QMenu("帮助", self)
@@ -1217,7 +1386,8 @@ class ReportCheckerApp(QMainWindow):
         """根据引擎列表更新下拉框选项（保留当前选择）"""
         if not hasattr(self, '_engine_combo'):
             return
-        current = self._engine_combo.currentText()
+        current_text = self._engine_combo.currentText()
+        current_name = self._engine_combo.currentData()
         self._engine_combo.blockSignals(True)
         self._engine_combo.clear()
         self._engine_combo.addItem("自动")
@@ -1226,12 +1396,13 @@ class ReportCheckerApp(QMainWindow):
             available = eng.get("available", False)
             label = name if available else f"{name} (不可用)"
             self._engine_combo.addItem(label, name)
-        # 恢复之前的选择
-        idx = self._engine_combo.findText(current)
-        if idx >= 0:
-            self._engine_combo.setCurrentIndex(idx)
-        else:
-            self._engine_combo.setCurrentIndex(0)
+        # 恢复之前的选择：优先按引擎名匹配，避免"(不可用)"后缀变化导致选中丢失
+        idx = self._engine_combo.findData(current_name) if current_name else 0
+        if idx < 0:
+            idx = self._engine_combo.findText(current_text)
+        if idx < 0:
+            idx = 0
+        self._engine_combo.setCurrentIndex(idx)
         self._engine_combo.blockSignals(False)
 
     def _on_engine_combo_changed(self, text: str):
@@ -1245,10 +1416,14 @@ class ReportCheckerApp(QMainWindow):
             # 从 userData 取引擎名（去掉" (不可用)"后缀）
             engine_name = self._engine_combo.currentData() or text
             ok = self._checker.set_ocr_engine(engine_name)
+            if not ok and engine_name == AI_ENGINE_NAME:
+                # AI 未配置：直接打开设置，保存后自动重试
+                self._show_ai_settings()
+                ok = self._checker.set_ocr_engine(engine_name)
             if ok:
                 self.status_bar.showMessage(f"已切换为 {engine_name} 引擎", 0)
             else:
-                QMessageBox.warning(self, "引擎不可用", f"{engine_name} 引擎不可用，请检查安装")
+                QMessageBox.warning(self, "引擎不可用", f"{engine_name} 引擎不可用，请检查安装或配置")
                 self._engine_combo.blockSignals(True)
                 self._engine_combo.setCurrentIndex(0)
                 self._engine_combo.blockSignals(False)
@@ -1332,6 +1507,15 @@ class ReportCheckerApp(QMainWindow):
                 self._current_scheme = new_scheme
                 self._apply_theme()
             self.status_bar.showMessage(f"设置已更新 - 配色: {new_scheme}, 透明度: {self._opacity}%")
+
+    def _show_ai_settings(self):
+        """打开 AI 视觉模型设置，保存后刷新引擎列表"""
+        dialog = AISettingsDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._refresh_engine_labels()
+            cfg = load_ai_config()
+            self.status_bar.showMessage(
+                f"AI 模型已保存：{cfg['model']} @ {cfg['base_url']}", 0)
 
     # ── 文件操作 ──
 
@@ -1764,6 +1948,20 @@ class ReportCheckerApp(QMainWindow):
             self._update_zoom_label()
             self._refresh_engine_labels()
             ocr_text = self._get_ocr_page_text()
+
+            forced = getattr(self._checker.ocr_engine, 'forced_engine_name', None)
+            template = getattr(self._checker, '_current_template', None)
+            if forced == AI_ENGINE_NAME and template:
+                # 第二段：大模型从 OCR 文本中抽取字段，直接填入表单
+                try:
+                    self.status_bar.showMessage("AI 正在抽取字段…")
+                    extracted = extract_fields_from_text(ocr_text, template)
+                    self._form_panel._fill_fields(extracted)
+                    self.status_bar.showMessage("AI 识别完成（OCR + 字段抽取）", 0)
+                    return
+                except Exception as e:
+                    self.status_bar.showMessage(f"字段抽取失败：{e}，已回退文本匹配", 0)
+
             self._form_panel.set_ocr_text(ocr_text)
             if used_engine:
                 self.status_bar.showMessage(f"OCR完成（{used_engine}）", 0)
