@@ -119,11 +119,24 @@ body {
   font-size: 13px; font-weight: 600; flex: none;
 }
 .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
-.tmpl-list { flex: 1; min-height: 80px; overflow-y: auto; }
+.tmpl-list {
+  flex: none; display: flex; flex-wrap: wrap; gap: 6px;
+  max-height: 132px; overflow-y: auto; align-content: flex-start;
+}
 .field-list {
-  flex: none; max-height: 150px; overflow-y: auto;
+  flex: none; max-height: 220px; overflow-y: auto;
   border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px;
   font-size: 12px; color: var(--text);
+}
+.field-block { padding: 4px 0; }
+.field-block + .field-block { border-top: 1px solid var(--border); margin-top: 2px; }
+.field-block-title {
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  padding: 3px 0 2px;
+}
+.field-headers {
+  font-size: 10.5px; color: var(--muted); line-height: 1.5;
+  padding: 2px 0 4px; word-break: break-all;
 }
 .field-item {
   display: flex; gap: 8px; justify-content: space-between;
@@ -132,28 +145,21 @@ body {
 .field-item:last-child { border-bottom: none; }
 .field-name { font-weight: 600; white-space: nowrap; }
 .field-desc { color: var(--muted); text-align: right; }
-.tmpl-group { margin-bottom: 10px; }
-.tmpl-group h4 {
-  margin: 0 0 6px; font-size: 11.5px; font-weight: 600;
-  color: var(--muted); letter-spacing: .3px;
+.field-tag {
+  margin-left: 4px; padding: 0 5px; border-radius: 4px;
+  background: var(--warn-bg); color: var(--warn);
+  font-size: 10px; font-weight: 600;
 }
+/* 横向测试项目标签（与桌面版 Tab 一致） */
 .tmpl-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 10px; margin-bottom: 6px;
-  border: 1px solid var(--border); border-radius: 8px;
+  display: inline-flex; align-items: center;
+  padding: 5px 13px; border: 1px solid var(--border); border-radius: 999px;
   cursor: pointer; transition: .12s ease; background: #fff;
+  font-size: 12.5px; font-weight: 600; color: #4b5563; white-space: nowrap;
 }
-.tmpl-item:hover { border-color: #c9ccd2; }
-.tmpl-item.selected { border-color: var(--primary); background: #fff8f7; }
-.tmpl-check {
-  width: 16px; height: 16px; border-radius: 4px; flex: none;
-  border: 1.5px solid #cfd3d8; display: grid; place-items: center;
-  font-size: 10px; color: #fff;
-}
-.tmpl-item.selected .tmpl-check { background: var(--primary); border-color: var(--primary); }
-.tmpl-item.selected .tmpl-check::after { content: "✓"; }
-.tmpl-name { font-size: 13.5px; font-weight: 600; }
-.tmpl-sub { font-size: 11.5px; color: var(--muted); }
+.tmpl-item:hover { border-color: var(--primary); color: var(--primary); background: #fff8f7; }
+.tmpl-item.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+.tmpl-name { font-size: 12.5px; font-weight: 600; }
 
 /* ── 进度 ── */
 .progress { flex: none; }

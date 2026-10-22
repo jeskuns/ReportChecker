@@ -11,6 +11,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = resolve(HERE, '../../templates');
 const OUT = resolve(HERE, '../site/templates.js');
 
+// 与桌面版 src/config.py 的 TEST_CATEGORIES 顺序保持一致，未列出的模板排在后面
+const ORDER = [
+  'clause12_heating',
+  'gb4343_1_emission',
+  'clause25_power_cord_bending',
+];
+
 const DISPLAY_NAMES = {
   clause11_input_power_current: '输入功率和电流',
   clause12_heating: '发热',
@@ -62,7 +69,12 @@ for (const file of files) {
   });
 }
 
-list.sort((a, b) => (a.standard_dir + a.name).localeCompare(b.standard_dir + b.name));
+const rank = (t) => {
+  const i = ORDER.indexOf(t.name);
+  return i === -1 ? ORDER.length : i;
+};
+
+list.sort((a, b) => rank(a) - rank(b) || (a.standard_dir + a.name).localeCompare(b.standard_dir + b.name));
 
 const banner = `/* 自动生成，请勿手工编辑。来源：templates/（共 ${list.length} 个模板） */\n`;
 writeFileSync(OUT, banner + `window.REPORT_TEMPLATES = ${JSON.stringify(list, null, 2)};\n`, 'utf8');

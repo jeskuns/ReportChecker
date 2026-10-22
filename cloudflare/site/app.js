@@ -82,23 +82,11 @@
   }
 
   function renderTemplates() {
-    const groups = new Map();
-    for (const t of state.templates) {
-      const key = t.standard || '其他';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(t);
-    }
-    $('tmplList').innerHTML = [...groups.entries()].map(([std, list]) => `
-      <div class="tmpl-group">
-        <h4>${esc(std)}</h4>
-        ${list.map((t) => `
-          <div class="tmpl-item" data-name="${esc(t.name)}">
-            <span class="tmpl-check"></span>
-            <span>
-              <span class="tmpl-name">${esc(t.display)}</span><br>
-              <span class="tmpl-sub">${esc(t.description || '')}</span>
-            </span>
-          </div>`).join('')}
+    // 与桌面版一致：横向排列的测试项目标签，不按标准分组
+    $('tmplList').innerHTML = state.templates.map((t) => `
+      <div class="tmpl-item${state.selected.has(t.name) ? ' selected' : ''}"
+           data-name="${esc(t.name)}" title="${esc(t.standard || '')} · ${esc(t.description || '')}">
+        <span class="tmpl-name">${esc(t.display)}</span>
       </div>`).join('') || '<p class="muted">未找到模板</p>';
     $('tmplCount').textContent = `${state.templates.length} 项`;
   }
@@ -111,25 +99,48 @@
       return;
     }
     const t = picked[0];
-    const fields = [];
-    for (const tb of t.template.tables || []) {
-      for (const f of tb.fields || []) {
-        if (!f.name || f.computed) continue;
-        fields.push({ name: f.name, desc: f.description || f.name, unit: f.unit || '' });
-      }
-    }
-    $('fieldCount').textContent = `${fields.length} 项${picked.length > 1 ? `（显示「${t.display}」）` : ''}`;
-    $('fieldList').innerHTML = fields.length
-      ? fields.map((f) => {
-        const dupUnit = f.unit && f.desc.includes(f.unit);
-        const unit = f.unit && !dupUnit ? `（${f.unit}）` : '';
+    const tmpl = t.template;
+    let total = 0;
+
+    const blocks = (tmpl.tables || []).map((tb) => {
+      const fields = (tb.fields || []).filter((f) => f.name);
+      if (!fields.length) return '';
+      total += fields.length;
+      const title = tb.table_name || tb.title || tb.description || '';
+      const headers = (tb.headers || []).map((h) => h.label).filter(Boolean);
+      const rows = fields.map((f) => {
+        const desc = f.description || f.name;
+        const unit = f.unit && !String(desc).includes(f.unit) ? `（${f.unit}）` : '';
+        const size = f.array_size ? ` ×${f.array_size}` : '';
+        const calc = f.computed ? '<span class="field-tag">计算</span>' : '';
         return `
         <div class="field-item">
-          <span class="field-name">${esc(f.desc)}${esc(unit)}</span>
-          <span class="field-desc">${esc(f.name)}</span>
+          <span class="field-name">${esc(desc)}${esc(unit)}${calc}</span>
+          <span class="field-desc">${esc(f.name)}${esc(size)}</span>
         </div>`;
-      }).join('')
-      : '<p class="muted">该模板未定义字段</p>';
+      }).join('');
+      return `
+      <div class="field-block">
+        ${title ? `<div class="field-block-title">${esc(title)}</div>` : ''}
+        ${headers.length ? `<div class="field-headers">${headers.map(esc).join(' · ')}</div>` : ''}
+        ${rows}
+      </div>`;
+    }).join('');
+
+    const legacy = (tmpl.fields || []).filter((f) => f.name);
+    if (!blocks && legacy.length) {
+      total = legacy.length;
+      $('fieldList').innerHTML = legacy.map((f) => `
+        <div class="field-item">
+          <span class="field-name">${esc(f.description || f.name)}</span>
+          <span class="field-desc">${esc(f.name)}</span>
+        </div>`).join('');
+    } else {
+      $('fieldList').innerHTML = blocks || '<p class="muted">该模板未定义字段</p>';
+    }
+
+    const version = tmpl.version ? ` · v${esc(tmpl.version)}` : '';
+    $('fieldCount').textContent = `${total} 项${version}${picked.length > 1 ? `（显示「${t.display}」）` : ''}`;
   }
 
   function bindEvents() {
