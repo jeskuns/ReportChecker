@@ -13,11 +13,6 @@
 <header class="topbar">
   <div class="brand"><span class="mark">RC</span><span>ReportChecker</span></div>
   <button id="btnOpen" class="btn btn-ghost btn-sm" type="button">打开报告</button>
-  <div class="pager">
-    <button id="btnPrev" class="pg" type="button" title="上一页">‹</button>
-    <span id="pageLabel" class="page-label">0/0</span>
-    <button id="btnNext" class="pg" type="button" title="下一页">›</button>
-  </div>
   <div class="spacer"></div>
   <div class="model-info">模型：<span id="modelName">读取中…</span></div>
   <button id="btnSettings" class="btn btn-ghost btn-sm" type="button">接口设置</button>
@@ -29,8 +24,22 @@
       <p class="drop-title">点击打开或拖入报告</p>
       <p class="drop-sub">支持 PDF、JPG、PNG，手机可直接拍照</p>
     </div>
-    <img id="previewImg" class="preview hidden" alt="报告页面">
-    <div id="fileBar" class="file-bar hidden"></div>
+    <div id="canvasWrap" class="canvas-wrap hidden">
+      <img id="previewImg" class="preview" alt="报告页面">
+    </div>
+    <div class="viewer-bar">
+      <div class="pager">
+        <button id="btnPrev" class="pg" type="button" title="上一页">‹</button>
+        <span id="pageLabel" class="page-label">0/0</span>
+        <button id="btnNext" class="pg" type="button" title="下一页">›</button>
+      </div>
+      <span class="vdivider"></span>
+      <button id="btnZoomOut" class="pg" type="button" title="缩小">−</button>
+      <span id="zoomLabel" class="page-label">100%</span>
+      <button id="btnZoomIn" class="pg" type="button" title="放大">+</button>
+      <button id="btnFit" class="btn-mini" type="button">适应</button>
+      <span class="file-bar" id="fileBar"></span>
+    </div>
   </section>
 
   <aside class="side">
@@ -39,6 +48,15 @@
       <span id="tmplCount" class="muted"></span>
     </div>
     <div id="tmplList" class="tmpl-list"></div>
+
+    <div class="side-head">
+      <span>模板字段</span>
+      <span id="fieldCount" class="muted"></span>
+    </div>
+    <div id="fieldList" class="field-list">
+      <p class="muted">选择测试项目后显示字段</p>
+    </div>
+
     <button id="btnCheck" class="btn btn-primary" type="button" disabled>开始校验</button>
     <div class="progress hidden" id="progressBox">
       <div class="track"><div id="progressBar"></div></div>

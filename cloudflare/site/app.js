@@ -103,6 +103,35 @@
     $('tmplCount').textContent = `${state.templates.length} 项`;
   }
 
+  function renderFields() {
+    const picked = state.templates.filter((t) => state.selected.has(t.name));
+    if (!picked.length) {
+      $('fieldCount').textContent = '';
+      $('fieldList').innerHTML = '<p class="muted">选择测试项目后显示字段</p>';
+      return;
+    }
+    const t = picked[0];
+    const fields = [];
+    for (const tb of t.template.tables || []) {
+      for (const f of tb.fields || []) {
+        if (!f.name || f.computed) continue;
+        fields.push({ name: f.name, desc: f.description || f.name, unit: f.unit || '' });
+      }
+    }
+    $('fieldCount').textContent = `${fields.length} 项${picked.length > 1 ? `（显示「${t.display}」）` : ''}`;
+    $('fieldList').innerHTML = fields.length
+      ? fields.map((f) => {
+        const dupUnit = f.unit && f.desc.includes(f.unit);
+        const unit = f.unit && !dupUnit ? `（${f.unit}）` : '';
+        return `
+        <div class="field-item">
+          <span class="field-name">${esc(f.desc)}${esc(unit)}</span>
+          <span class="field-desc">${esc(f.name)}</span>
+        </div>`;
+      }).join('')
+      : '<p class="muted">该模板未定义字段</p>';
+  }
+
   function bindEvents() {
     const input = $('fileInput') || createFileInput();
     $('btnOpen').addEventListener('click', () => input.click());
@@ -131,11 +160,15 @@
       if (state.selected.has(name)) state.selected.delete(name);
       else state.selected.add(name);
       item.classList.toggle('selected', state.selected.has(name));
+      renderFields();
       syncUi();
     });
 
     $('btnPrev').addEventListener('click', () => goPage(state.pageIndex - 1));
     $('btnNext').addEventListener('click', () => goPage(state.pageIndex + 1));
+    $('btnZoomIn').addEventListener('click', () => setZoom(zoom + 0.1));
+    $('btnZoomOut').addEventListener('click', () => setZoom(zoom - 0.1));
+    $('btnFit').addEventListener('click', () => { setZoom(1); $('canvasWrap').scrollTop = 0; });
     $('btnCheck').addEventListener('click', runCheck);
     $('btnSettings').addEventListener('click', openSettings);
     $('btnCancelSettings').addEventListener('click', () => $('settingsModal').classList.add('hidden'));
@@ -260,11 +293,10 @@
       else await loadImage(file);
 
       $('dropZone').classList.add('hidden');
-      $('previewImg').classList.remove('hidden');
-      $('fileBar').classList.remove('hidden');
-      $('fileBar').innerHTML =
-        `<span>${esc(file.name)} · ${bytes(file.size)}</span><span>${state.pages.length} 页</span>`;
+      $('canvasWrap').classList.remove('hidden');
+      $('fileBar').textContent = `${file.name} · ${bytes(file.size)} · ${state.pages.length} 页`;
       showPage(0);
+      applyZoom();
       status(`已打开：${file.name}（${state.pages.length} 页）`);
     } catch (e) {
       status(`读取失败：${e.message}`);
@@ -306,6 +338,20 @@
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     state.pages.push(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+  }
+
+  /* ── 预览缩放 ── */
+
+  let zoom = 1;
+
+  function applyZoom() {
+    $('previewImg').style.width = `${zoom * 100}%`;
+    $('zoomLabel').textContent = `${Math.round(zoom * 100)}%`;
+  }
+
+  function setZoom(z) {
+    zoom = Math.min(2.5, Math.max(0.5, Math.round(z * 20) / 20));
+    applyZoom();
   }
 
   function showPage(i) {

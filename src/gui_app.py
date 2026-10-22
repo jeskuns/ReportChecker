@@ -1191,7 +1191,40 @@ class ReportCheckerApp(QMainWindow):
         ctrl.setContentsMargins(6, 4, 6, 4)
         ctrl.setSpacing(6)
 
-        # 缩放（只保留缩放控件，删除页码导航）
+        # 翻页（页码导航）
+        self.prev_page_button = QPushButton("‹")
+        self.prev_page_button.setFixedSize(22, 22)
+        self.prev_page_button.setToolTip("上一页")
+        self.prev_page_button.setStyleSheet(Theme.BTN_TOOL())
+        self.prev_page_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.prev_page_button.setEnabled(False)
+        self.prev_page_button.clicked.connect(
+            lambda: self._goto_page(self._current_page - 1))
+
+        self.page_input = QLineEdit("1")
+        self.page_input.setFixedSize(38, 22)
+        self.page_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.page_input.setToolTip("输入页码后回车跳转")
+        self.page_input.setStyleSheet(
+            f"QLineEdit {{ background: {Theme.CARD()}; color: {Theme.TEXT()};"
+            f" border: 1px solid {Theme.BORDER()}; border-radius: 4px;"
+            f" font-size: 11px; padding: 1px 2px; }}")
+        self.page_input.returnPressed.connect(self._jump_to_page)
+
+        self.page_total_label = QLabel("/ 0")
+        self.page_total_label.setStyleSheet(
+            f"color: {Theme.TEXT_SEC()}; font-size: 11px; font-weight: 600;")
+
+        self.next_page_button = QPushButton("›")
+        self.next_page_button.setFixedSize(22, 22)
+        self.next_page_button.setToolTip("下一页")
+        self.next_page_button.setStyleSheet(Theme.BTN_TOOL())
+        self.next_page_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.next_page_button.setEnabled(False)
+        self.next_page_button.clicked.connect(
+            lambda: self._goto_page(self._current_page + 1))
+
+        # 缩放
         self.zoom_out_button = QPushButton("−")
         self.zoom_out_button.setFixedSize(22, 22)
         self.zoom_out_button.setToolTip("缩小")
@@ -1264,7 +1297,12 @@ class ReportCheckerApp(QMainWindow):
         self.cross_verify_button.setEnabled(False)
         self.cross_verify_button.clicked.connect(self._cross_verify_ocr)
 
-        # 布局：缩放 | 分隔 | 识别框 | 识别并填入 | 交叉比对 | stretch
+        # 布局：翻页 | 分隔 | 缩放 | 识别框 | 识别并填入 | 交叉比对 | stretch
+        ctrl.addWidget(self.prev_page_button)
+        ctrl.addWidget(self.page_input)
+        ctrl.addWidget(self.page_total_label)
+        ctrl.addWidget(self.next_page_button)
+        ctrl.addWidget(sep)
         ctrl.addWidget(self.zoom_out_button)
         ctrl.addWidget(self.zoom_label)
         ctrl.addWidget(self.zoom_in_button)
@@ -1483,6 +1521,12 @@ class ReportCheckerApp(QMainWindow):
         self.zoom_out_button.setStyleSheet(btn_style)
         self.zoom_in_button.setStyleSheet(btn_style)
         self.zoom_reset_button.setStyleSheet(btn_style)
+        self.prev_page_button.setStyleSheet(btn_style)
+        self.next_page_button.setStyleSheet(btn_style)
+        self.page_input.setStyleSheet(
+            f"QLineEdit {{ background: {Theme.CARD()}; color: {Theme.TEXT()};"
+            f" border: 1px solid {Theme.BORDER()}; border-radius: 4px;"
+            f" font-size: 11px; padding: 1px 2px; }}")
         self.boxes_button.setStyleSheet(btn_style)
         # 刷新右侧面板
         if hasattr(self, '_form_panel'):
@@ -1829,8 +1873,8 @@ class ReportCheckerApp(QMainWindow):
         # 先跳转到第2页，避免 viewer 状态不一致导致滚动
         if self._current_page != target_page:
             self._current_page = target_page
-            self.pdf_viewer.set_page(self._checker, target_page)
-            self._update_zoom_label()
+            self._render_current_page()
+            self._update_page_info()
         self.pdf_viewer.reset_progress()
         self.ocr_button.setEnabled(False)
         self.cross_verify_button.setEnabled(False)
@@ -2075,9 +2119,40 @@ class ReportCheckerApp(QMainWindow):
 
         return '\n'.join(lines)
 
+    def _goto_page(self, index: int):
+        """跳转到指定页（0 起）"""
+        if not getattr(self, '_checker', None):
+            return
+        total = self._checker.get_page_count()
+        if total <= 0:
+            return
+        index = max(0, min(index, total - 1))
+        self._current_page = index
+        self._render_current_page()
+        self._update_page_info()
+
+    def _jump_to_page(self):
+        """按输入框中的页码跳转"""
+        try:
+            target = int(self.page_input.text().strip()) - 1
+        except ValueError:
+            self._update_page_info()
+            return
+        self._goto_page(target)
+
     def _update_page_info(self):
-        """更新页码信息（仅保留方法签名，不再显示页码控件）"""
-        pass
+        """刷新页码显示与翻页按钮可用状态"""
+        total = self._checker.get_page_count() if getattr(self, '_checker', None) else 0
+        if total <= 0:
+            self.page_input.setText("1")
+            self.page_total_label.setText("/ 0")
+            self.prev_page_button.setEnabled(False)
+            self.next_page_button.setEnabled(False)
+            return
+        self.page_input.setText(str(self._current_page + 1))
+        self.page_total_label.setText(f"/ {total}")
+        self.prev_page_button.setEnabled(self._current_page > 0)
+        self.next_page_button.setEnabled(self._current_page < total - 1)
 
     def closeEvent(self, event):
         self._checker.close_pdf()

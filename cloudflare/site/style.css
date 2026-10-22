@@ -85,15 +85,27 @@ body {
 .drop:hover, .drop.dragover { border-color: var(--primary); background: #fff8f7; }
 .drop-title { margin: 0 0 4px; font-weight: 600; }
 .drop-sub { margin: 0; font-size: 12.5px; color: var(--muted); }
-.preview {
-  flex: 1; min-height: 0; width: 100%;
-  object-fit: contain; padding: 10px; cursor: pointer;
+.canvas-wrap {
+  flex: 1; min-height: 0; overflow: auto;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 10px;
 }
+.preview { display: block; width: 100%; height: auto; cursor: pointer; }
+.viewer-bar {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; border-top: 1px solid var(--border);
+  background: #fafbfc; font-size: 12px; overflow: hidden;
+}
+.vdivider { width: 1px; height: 16px; background: var(--border); flex: none; }
+.btn-mini {
+  padding: 3px 8px; font-size: 11.5px; border: 1px solid var(--border);
+  background: #fff; border-radius: 5px; cursor: pointer; color: var(--muted);
+}
+.btn-mini:hover { border-color: #c9ccd2; color: var(--text); }
 .file-bar {
-  flex: none; padding: 7px 12px; font-size: 12px; color: var(--muted);
-  border-top: 1px solid var(--border); background: #fafbfc;
-  display: flex; justify-content: space-between; gap: 10px;
-  white-space: nowrap; overflow: hidden;
+  margin-left: auto; color: var(--muted); font-size: 11.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding-left: 8px;
 }
 
 /* ── 右侧面板 ── */
@@ -108,6 +120,18 @@ body {
 }
 .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
 .tmpl-list { flex: 1; min-height: 80px; overflow-y: auto; }
+.field-list {
+  flex: none; max-height: 150px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px;
+  font-size: 12px; color: var(--text);
+}
+.field-item {
+  display: flex; gap: 8px; justify-content: space-between;
+  padding: 3px 0; border-bottom: 1px dashed var(--border);
+}
+.field-item:last-child { border-bottom: none; }
+.field-name { font-weight: 600; white-space: nowrap; }
+.field-desc { color: var(--muted); text-align: right; }
 .tmpl-group { margin-bottom: 10px; }
 .tmpl-group h4 {
   margin: 0 0 6px; font-size: 11.5px; font-weight: 600;
@@ -233,5 +257,7 @@ body {
   .btn-sm { padding: 5px 10px; font-size: 12px; }
   .side { padding: 10px; }
   .results { flex: 1; }
-  .preview { padding: 6px; }
+  .canvas-wrap { padding: 6px; }
+  .viewer-bar { flex-wrap: wrap; }
+  .field-list { max-height: 110px; }
 }
