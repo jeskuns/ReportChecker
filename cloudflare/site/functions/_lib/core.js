@@ -1,62 +1,107 @@
 /**
- * ReportChecker 网页版 Worker
+ * ReportChecker 在线版核心逻辑（Cloudflare Pages Functions）
  *
- * 两段式识别：
- *   1) 视觉模型 OCR：页面图像 → 文字（保留表格行列）
- *   2) 大模型抽取：文字 + 模板字段定义 → 结构化 JSON
- * 校验判定全部在前端本地完成。
- *
- * 环境变量：
- *   AI_BASE_URL     OpenAI 兼容接口地址，默认 DeepSeek
- *   AI_API_KEY      密钥（wrangler secret put 配置）
- *   OCR_MODEL       识别模型，默认 deepseek-flash（支持图片输入）
- *   EXTRACT_MODEL   抽取模型，默认 deepseek-flash
- *   ACCESS_CODE     可选，设置后前端需填同样的访问码
+ * 两部分接口各自独立配置：
+ *   识别接口 OCR：页面图像 → 文字（默认阿里百炼 qwen-vl-ocr）
+ *   抽取接口 LLM：文字 + 模板字段 → JSON（默认 DeepSeek deepseek-flash）
  */
+
+export const ALLOWED_HOSTS = [
+  'dashscope.aliyuncs.com',
+  'dashscope-intl.aliyuncs.com',
+  'api.deepseek.com',
+  'ark.cn-beijing.volces.com',
+  'open.bigmodel.cn',
+  'api.moonshot.cn',
+  'api.openai.com',
+  'api.siliconflow.cn',
+];
 
 const MAX_IMAGES = 8;
 const MAX_IMAGE_CHARS = 8 * 1024 * 1024;
+
+const DEFAULT_OCR = {
+  baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  model: 'qwen-vl-ocr',
+};
+const DEFAULT_EXTRACT = {
+  baseUrl: 'https://api.deepseek.com/v1',
+  model: 'deepseek-flash',
+};
+
+// 1x1 白色 PNG，仅用于测试识别接口能否读图
+const TINY_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 const OCR_PROMPT =
   '你是 OCR 引擎。识别这页图片中的全部文字，按从上到下、从左到右的顺序输出。' +
   '表格按行输出，同一行的单元格之间用 " | " 分隔。' +
   '只输出识别到的原文，不要解释、不要使用 Markdown 代码块。';
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (url.pathname === '/api/health') return health(env);
-    if (url.pathname === '/api/extract') {
-      if (request.method !== 'POST') return json({ ok: false, error: '仅支持 POST' }, 405);
-      return extract(request, env);
-    }
-    return env.ASSETS.fetch(request);
-  },
-};
-
-function json(data, status = 200) {
+export function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 }
 
-function health(env) {
+/* ───────────── 配置 ───────────── */
+
+export function health(env) {
   return json({
     ok: true,
-    ocrModel: env.OCR_MODEL || 'deepseek-flash',
-    extractModel: env.EXTRACT_MODEL || 'deepseek-flash',
-    base: env.AI_BASE_URL || 'https://api.deepseek.com/v1',
-    hasKey: Boolean(env.AI_API_KEY),
+    defaults: {
+      ocr: {
+        baseUrl: env.OCR_BASE_URL || DEFAULT_OCR.baseUrl,
+        model: env.OCR_MODEL || DEFAULT_OCR.model,
+      },
+      extract: {
+        baseUrl: env.EXTRACT_BASE_URL || env.AI_BASE_URL || DEFAULT_EXTRACT.baseUrl,
+        model: env.EXTRACT_MODEL || DEFAULT_EXTRACT.model,
+      },
+    },
+    hasServerKey: {
+      ocr: Boolean(env.OCR_API_KEY),
+      extract: Boolean(env.EXTRACT_API_KEY || env.AI_API_KEY),
+    },
     needCode: Boolean(env.ACCESS_CODE),
+    allowedHosts: ALLOWED_HOSTS,
   });
 }
 
-/* ───────────── 模型调用 ───────────── */
-
-function endpoint(env) {
-  return `${(env.AI_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/+$/, '')}/chat/completions`;
+function resolvePair(env, body, kind) {
+  const s = (body && typeof body.settings === 'object' && body.settings) || {};
+  const sec = (s && typeof s[kind] === 'object' && s[kind]) || {};
+  const isOcr = kind === 'ocr';
+  const up = isOcr ? 'OCR' : 'EXTRACT';
+  const def = isOcr ? DEFAULT_OCR : DEFAULT_EXTRACT;
+  const fallbackBase = env.AI_BASE_URL || def.baseUrl;
+  const fallbackKey = isOcr ? '' : (env.EXTRACT_API_KEY || env.AI_API_KEY || '');
+  return {
+    baseUrl: String(sec.baseUrl || env[`${up}_BASE_URL`] || fallbackBase)
+      .trim().replace(/\/+$/, ''),
+    model: String(sec.model || env[`${up}_MODEL`] || def.model).trim(),
+    apiKey: String(sec.apiKey || env[`${up}_API_KEY`] || fallbackKey).trim(),
+  };
 }
+
+function validatePair(cfg, label) {
+  let u;
+  try {
+    u = new URL(cfg.baseUrl);
+  } catch {
+    return `${label}：Base URL 格式不正确`;
+  }
+  if (u.protocol !== 'https:') return `${label}：Base URL 必须使用 https`;
+  if (!ALLOWED_HOSTS.includes(u.hostname)) {
+    return `${label}：暂不支持域名 ${u.hostname}`;
+  }
+  if (!cfg.model) return `${label}：未填写模型名称`;
+  if (!cfg.apiKey) return `${label}：未填写 API Key`;
+  return '';
+}
+
+/* ───────────── 模型调用 ───────────── */
 
 function friendlyError(status, detail) {
   const hint = status === 401 ? 'API Key 无效'
@@ -66,19 +111,19 @@ function friendlyError(status, detail) {
   return `${hint}：${detail}`;
 }
 
-async function chat(env, model, messages) {
+async function chat(cfg, messages) {
   let resp;
   try {
-    resp = await fetch(endpoint(env), {
+    resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        authorization: `Bearer ${env.AI_API_KEY}`,
+        authorization: `Bearer ${cfg.apiKey}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ model, temperature: 0, messages }),
+      body: JSON.stringify({ model: cfg.model, temperature: 0, messages }),
     });
   } catch (e) {
-    throw new Error(`模型接口连接失败：${e.message}`);
+    throw new Error(`接口连接失败：${e.message}`);
   }
   if (!resp.ok) {
     const detail = (await resp.text()).slice(0, 300).replace(/\s+/g, ' ');
@@ -92,7 +137,6 @@ async function chat(env, model, messages) {
 }
 
 /* ───────────── 模板字段 → 提示词 ───────────── */
-
 
 function collectFields(template) {
   const fields = [];
@@ -153,15 +197,15 @@ function buildPrompt(template, fields) {
     lines.push(`  - "${f.name}": ${desc}${unit}，${shape}${note}`);
   }
   return (
-    '你是电动工具检测报告的数据提取助手。请阅读提供的报告页面（图像或文本），' +
+    '你是电动工具检测报告的数据提取助手。请阅读提供的报告识别文本，' +
     '提取下列字段并以严格 JSON 输出。\n\n' +
     head.join('\n') + '\n' + lines.join('\n') + '\n\n' +
     '输出要求：\n' +
     '1. 只输出一个 JSON 对象，键为字段英文名，不要输出任何解释、注释或 markdown 代码围栏。\n' +
     '2. 数字字段输出数值（不带单位、不带千分位逗号）；确实找不到的填 null。\n' +
     '3. 数字数组按表格从左到右的顺序输出，缺失的单元格用 null 占位，保持数组长度。\n' +
-    '4. 文本字段输出原文（如"合格"、"电阻法"等）。\n' +
-    '5. 表格中合并单元格或空白的列，同样以 null 占位。'
+    '4. 文本字段输出原文。\n' +
+    '5. 报告中未出现的字段一律填 null，不要猜测。'
   );
 }
 
@@ -225,16 +269,64 @@ function extractJson(text) {
   }
 }
 
-/* ───────────── 主接口 ───────────── */
+/* ───────────── 接口实现 ───────────── */
 
-async function extract(request, env) {
-  if (env.ACCESS_CODE) {
-    const code = request.headers.get('x-access-code') || '';
-    if (code !== env.ACCESS_CODE) return json({ ok: false, error: '访问码不正确' }, 401);
+function checkAccess(request, env) {
+  if (!env.ACCESS_CODE) return '';
+  const code = request.headers.get('x-access-code') || '';
+  return code === env.ACCESS_CODE ? '' : '访问码不正确';
+}
+
+export async function handleTest(request, env) {
+  const denied = checkAccess(request, env);
+  if (denied) return json({ ok: false, message: denied });
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    /* 允许空请求体 */
   }
-  if (!env.AI_API_KEY) {
-    return json({ ok: false, error: '服务端未配置 AI_API_KEY，请先执行 wrangler secret put AI_API_KEY' }, 500);
+  const ocr = resolvePair(env, body, 'ocr');
+  const ext = resolvePair(env, body, 'extract');
+
+  const ocrErr = validatePair(ocr, '识别接口');
+  const extErr = validatePair(ext, '抽取接口');
+  if (ocrErr || extErr) {
+    return json({ ok: false, message: [ocrErr, extErr].filter(Boolean).join('；') });
   }
+
+  const results = [];
+  let allOk = true;
+
+  try {
+    await chat(ocr, [{
+      role: 'user',
+      content: [
+        { type: 'text', text: '这张图是什么颜色？只回复一个词。' },
+        { type: 'image_url', image_url: { url: TINY_PNG } },
+      ],
+    }]);
+    results.push(`识别接口可用（${ocr.model}）`);
+  } catch (e) {
+    allOk = false;
+    results.push(`识别接口失败：${e.message}`);
+  }
+
+  try {
+    await chat(ext, [{ role: 'user', content: '回复 OK' }]);
+    results.push(`抽取接口可用（${ext.model}）`);
+  } catch (e) {
+    allOk = false;
+    results.push(`抽取接口失败：${e.message}`);
+  }
+
+  return json({ ok: allOk, message: results.join('；') });
+}
+
+export async function handleExtract(request, env) {
+  const denied = checkAccess(request, env);
+  if (denied) return json({ ok: false, error: denied }, 401);
 
   let body;
   try {
@@ -243,13 +335,18 @@ async function extract(request, env) {
     return json({ ok: false, error: '请求体不是合法 JSON' }, 400);
   }
 
+  const ocr = resolvePair(env, body, 'ocr');
+  const ext = resolvePair(env, body, 'extract');
+  const cfgError = validatePair(ocr, '识别接口') || validatePair(ext, '抽取接口');
+  if (cfgError) return json({ ok: false, error: cfgError }, 400);
+
   const template = body.template;
   if (!template || typeof template !== 'object') return json({ ok: false, error: '缺少模板' }, 400);
 
   const images = Array.isArray(body.images) ? body.images.slice(0, MAX_IMAGES) : [];
   for (const img of images) {
     if (typeof img !== 'string' || img.length > MAX_IMAGE_CHARS) {
-      return json({ ok: false, error: '图片过大或格式错误，请降低分辨率后重试' }, 413);
+      return json({ ok: false, error: '图片过大或格式错误' }, 413);
     }
   }
   const extraText = typeof body.text === 'string' ? body.text.slice(0, 20000) : '';
@@ -258,13 +355,10 @@ async function extract(request, env) {
   const fields = collectFields(template);
   if (!fields.length) return json({ ok: false, error: '模板中未定义任何字段' }, 400);
 
-  const ocrModel = env.OCR_MODEL || 'deepseek-flash';
-  const extractModel = env.EXTRACT_MODEL || 'deepseek-flash';
-
   try {
-    // 第一段：逐页 OCR
+    // 第一段：识别
     const pageTexts = await Promise.all(images.map((img) =>
-      chat(env, ocrModel, [{
+      chat(ocr, [{
         role: 'user',
         content: [
           { type: 'text', text: OCR_PROMPT },
@@ -279,11 +373,11 @@ async function extract(request, env) {
     });
     if (extraText) parts.push(`【文本层】\n${extraText}`);
     const ocrText = parts.join('\n\n').slice(0, 60000);
-    if (!ocrText) return json({ ok: false, error: '未识别到任何文字，请检查图片清晰度' }, 422);
+    if (!ocrText) return json({ ok: false, error: '未识别到文字，请检查图片清晰度' }, 422);
 
     // 第二段：字段抽取
     const prompt = buildPrompt(template, fields);
-    const raw = await chat(env, extractModel, [
+    const raw = await chat(ext, [
       { role: 'system', content: '你是严谨的数据提取助手，只输出 JSON。' },
       { role: 'user', content: `${prompt}\n\n报告识别文本：\n${ocrText}` },
     ]);
@@ -293,7 +387,7 @@ async function extract(request, env) {
 
     const extracted = {};
     for (const f of fields) extracted[f.name] = coerce(obj[f.name], f);
-    return json({ ok: true, extracted, ocrModel, extractModel });
+    return json({ ok: true, extracted, ocrModel: ocr.model, extractModel: ext.model });
   } catch (e) {
     return json({ ok: false, error: e.message || '识别失败' }, 502);
   }

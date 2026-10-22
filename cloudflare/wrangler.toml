@@ -1,0 +1,9 @@
+name = "reportchecker"
+pages_build_output_dir = "./site"
+compatibility_date = "2026-01-01"
+
+[vars]
+OCR_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+OCR_MODEL = "qwen-vl-ocr"
+EXTRACT_BASE_URL = "https://api.deepseek.com/v1"
+EXTRACT_MODEL = "deepseek-flash"

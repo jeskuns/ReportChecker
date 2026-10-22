@@ -24,6 +24,35 @@
 
   const accessCode = () => localStorage.getItem('rc_access_code') || '';
 
+  const SETTINGS_KEY = 'rc_api_settings';
+  function getSettings() {
+    try {
+      return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveSettings(obj) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
+  }
+
+  /** 表单值优先，其次本地保存值，最后服务端默认 */
+  function currentConfig() {
+    const saved = getSettings();
+    const d = (state.health && state.health.defaults) || {};
+    const ocr = Object.assign({}, d.ocr, saved.ocr);
+    const ext = Object.assign({}, d.extract, saved.extract);
+    return { ocr, extract: ext };
+  }
+
+  function refreshModelLabel() {
+    const { ocr, extract } = currentConfig();
+    $('modelName').textContent = ocr.model
+      ? `${ocr.model} → ${extract.model}`
+      : '未设置';
+  }
+
   function status(text) {
     $('statusText').textContent = text;
   }
@@ -110,13 +139,8 @@
     $('btnCheck').addEventListener('click', runCheck);
     $('btnSettings').addEventListener('click', openSettings);
     $('btnCancelSettings').addEventListener('click', () => $('settingsModal').classList.add('hidden'));
-    $('btnSaveSettings').addEventListener('click', () => {
-      const code = $('accessCode').value.trim();
-      if (code) localStorage.setItem('rc_access_code', code);
-      else localStorage.removeItem('rc_access_code');
-      $('settingsModal').classList.add('hidden');
-      status('接口设置已保存');
-    });
+    $('btnSaveSettings').addEventListener('click', saveSettingsFromForm);
+    $('btnTest').addEventListener('click', testSettings);
   }
 
   function createFileInput() {
@@ -142,21 +166,77 @@
     try {
       const r = await fetch('/api/health');
       state.health = await r.json();
-      const h = state.health || {};
-      $('modelName').textContent = h.ok ? `${h.ocrModel} → ${h.extractModel}` : '未连接';
     } catch {
-      $('modelName').textContent = '未连接';
+      state.health = { ok: false };
     }
+    refreshModelLabel();
   }
 
   function openSettings() {
     const h = state.health || {};
     $('apiStatus').innerHTML = h.ok
-      ? `识别模型：<b>${esc(h.ocrModel)}</b><br>抽取模型：<b>${esc(h.extractModel)}</b><br>` +
-        `接口：${esc(h.base)}<br>服务端密钥：${h.hasKey ? '已配置' : '未配置'}`
-      : '无法连接服务端。';
+      ? `服务端密钥：识别 ${h.hasServerKey.ocr ? '已配置' : '未配置'} / 抽取 ${h.hasServerKey.extract ? '已配置' : '未配置'}` +
+        `　访问码：${h.needCode ? '已启用' : '未启用'}`
+      : '未连接到服务端';
+
+    const cfg = currentConfig();
+    $('ocrBaseUrl').value = cfg.ocr.baseUrl || '';
+    $('ocrModel').value = cfg.ocr.model || '';
+    $('ocrApiKey').value = cfg.ocr.apiKey || '';
+    $('extractBaseUrl').value = cfg.extract.baseUrl || '';
+    $('extractModel').value = cfg.extract.model || '';
+    $('extractApiKey').value = cfg.extract.apiKey || '';
     $('accessCode').value = accessCode();
+    $('testResult').classList.add('hidden');
     $('settingsModal').classList.remove('hidden');
+  }
+
+  function collectSettings() {
+    return {
+      ocr: {
+        baseUrl: $('ocrBaseUrl').value.trim(),
+        model: $('ocrModel').value.trim(),
+        apiKey: $('ocrApiKey').value.trim(),
+      },
+      extract: {
+        baseUrl: $('extractBaseUrl').value.trim(),
+        model: $('extractModel').value.trim(),
+        apiKey: $('extractApiKey').value.trim(),
+      },
+    };
+  }
+
+  function saveSettingsFromForm() {
+    saveSettings(collectSettings());
+    const code = $('accessCode').value.trim();
+    if (code) localStorage.setItem('rc_access_code', code);
+    else localStorage.removeItem('rc_access_code');
+    refreshModelLabel();
+    $('settingsModal').classList.add('hidden');
+    status('接口设置已保存');
+  }
+
+  async function testSettings() {
+    const box = $('testResult');
+    box.className = 'test-line';
+    box.textContent = '正在测试…';
+    box.classList.remove('hidden');
+    const headers = { 'content-type': 'application/json' };
+    const code = $('accessCode').value.trim();
+    if (code) headers['x-access-code'] = code;
+    try {
+      const resp = await fetch('/api/test', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ settings: collectSettings() }),
+      });
+      const data = await resp.json();
+      box.className = `test-line ${data.ok ? 'ok' : 'fail'}`;
+      box.textContent = data.message || (data.ok ? '连接成功' : '连接失败');
+    } catch (e) {
+      box.className = 'test-line fail';
+      box.textContent = `测试失败：${e.message}`;
+    }
   }
 
   /* ── 文件 ── */
@@ -266,7 +346,7 @@
     const resp = await fetch('/api/extract', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ template, images }),
+      body: JSON.stringify({ template, images, settings: getSettings() }),
     });
     let data;
     try {

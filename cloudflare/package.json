@@ -2,11 +2,11 @@
   "name": "reportchecker-web",
   "private": true,
   "version": "1.0.0",
-  "description": "ReportChecker 网页版 — Cloudflare Workers 部署",
+  "description": "ReportChecker 网页版 — Cloudflare Pages 部署",
   "scripts": {
     "build": "node scripts/build-templates.mjs && node scripts/copy-vendor.mjs",
-    "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "dev": "npm run build && cd site && wrangler pages dev . --port 8787",
+    "deploy": "npm run build && cd site && wrangler pages deploy . --project-name=reportchecker --commit-dirty=true"
   },
   "devDependencies": {
     "pdfjs-dist": "3.11.174",

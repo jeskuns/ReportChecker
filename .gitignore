@@ -31,3 +31,5 @@ ai_config.json
 cloudflare/node_modules/
 cloudflare/.wrangler/
 cloudflare/.dev.vars
+
+cloudflare/site/.wrangler/

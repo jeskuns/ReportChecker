@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(HERE, '../node_modules/pdfjs-dist/build');
-const DST = resolve(HERE, '../public/vendor');
+const DST = resolve(HERE, '../site/vendor');
 
 mkdirSync(DST, { recursive: true });
 for (const f of ['pdf.min.js', 'pdf.worker.min.js']) {

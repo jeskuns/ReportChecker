@@ -14,7 +14,7 @@
 | **本机网页版** | 双击 `webapp\run_web.bat` | 阿里云 DocMind（AK/SK）解析 PDF / 图片 / Word，可选视觉大模型 | 局域网内电脑 / 手机访问 |
 | **在线网页版** | Cloudflare 部署（见下文） | 两段式：视觉模型 OCR → 大模型抽取字段 | 任何网络下的手机、电脑，打开网址即用 |
 
-> **在线地址**：https://reportchecker.cultured-papaya.workers.dev  
+> **在线地址**：https://reportchecker.pages.dev  
 > **入口说明**：`run.bat` 只启动桌面版；本机网页版是独立的 `webapp\run_web.bat`；
 > 在线版部署在 Cloudflare，无需本机开机，手机电脑直接访问网址即可。
 
@@ -433,21 +433,44 @@ run_web.bat
 
 ---
 
-## 在线网页版（Cloudflare）
+## 在线网页版（Cloudflare Pages）
+
+线上地址：**https://reportchecker.pages.dev**
+
+### 两部分接口（各自独立配置）
+
+界面上有两个独立的设置入口，分别对应流水线的两段：
+
+| 入口 | 作用 | 默认 |
+|------|------|------|
+| **识别接口** | 页面图像 → 文字（表格按行） | 阿里百炼 `qwen-vl-ocr` |
+| **抽取接口** | 文字 + 模板字段 → JSON | DeepSeek `deepseek-flash` |
+
+```
+上传/拍照 → pdf.js 渲染页面
+   → 识别接口（每家可配 Base URL / 模型 / Key）
+   → 抽取接口（每家可配 Base URL / 模型 / Key）
+   → 浏览器本地规则校验（公式 / 限值 / 容差）
+```
+
+识别 Key 与抽取 Key 完全独立，可以「百炼识别 + DeepSeek 抽取」，也可以两家都用同一家。
+Key 只保存在浏览器 localStorage，随请求发给 Pages Function，服务端不落库。
 
 ### 目录结构
 
 ```
 cloudflare/
-├── src/index.js              # Worker：/api/health、/api/extract（两段式识别+抽取）
-├── public/                   # 静态前端（顶部工具栏 + 左侧预览 + 右侧测试项目，手机自动上下排列）
-│   ├── index.html
-│   ├── style.css / app.js / rules.js
-│   ├── templates.js          # 由 templates/ 自动生成
-│   └── vendor/               # pdf.js（本地打包，不依赖外部 CDN）
-├── scripts/build-templates.mjs   # 模板 → templates.js
-├── scripts/copy-vendor.mjs       # 复制 pdf.js
-└── wrangler.jsonc
+├── site/                          # 部署目录（静态资源 + Pages Functions）
+│   ├── index.html / style.css / app.js / rules.js
+│   ├── templates.js               # 由 templates/ 自动生成
+│   ├── vendor/                    # pdf.js（本地打包，不依赖 CDN）
+│   └── functions/
+│       ├── _lib/core.js           # 两段式识别 + 抽取逻辑
+│       └── api/{health,test,extract}.js
+├── scripts/build-templates.mjs    # 模板 → templates.js
+├── scripts/copy-vendor.mjs        # 复制 pdf.js
+├── wrangler.toml                  # Pages 配置（项目名 / 输出目录 / 变量）
+└── .dev.vars                      # 本地密钥（不入库）
 ```
 
 ### 本地调试
@@ -455,37 +478,43 @@ cloudflare/
 ```bash
 cd cloudflare
 npm install
-npm run dev        # 构建模板 + wrangler dev，默认 http://127.0.0.1:8787
+npm run dev        # http://127.0.0.1:8787
 ```
 
-本地调试时在 `cloudflare/.dev.vars` 写入 `AI_API_KEY=sk-xxx`（该文件不入库）。
+### 部署（本机已验证可用）
 
-### 部署
+账号：`jeskuns@outlook.com`　Account ID：`0fbd1583e54c3e807a09c46d4913c83b`
 
-```bash
-npx wrangler login          # 首次需要授权 Cloudflare 账号
+```powershell
+$env:CLOUDFLARE_API_TOKEN = "<Pages:Edit Token>"
+$env:CLOUDFLARE_ACCOUNT_ID = "0fbd1583e54c3e807a09c46d4913c83b"
+
 cd cloudflare
 npm run build
-npx wrangler deploy
-npx wrangler secret put AI_API_KEY   # 写入服务端密钥
+cd site
+npx wrangler pages deploy . --project-name=reportchecker --commit-dirty=true
+
+# 只配一次密钥（抽取接口）
+npx wrangler pages secret put EXTRACT_API_KEY --project-name=reportchecker
 ```
 
-未登录时可先用 `npx wrangler deploy --temporary` 得到一个临时预览地址（不会带密钥）。
+> 该账号未启用 workers.dev，因此用 Pages（`*.pages.dev`）而不是 Workers。
+> Functions 必须位于**部署目录内部**（`site/functions`），否则 `pages dev` 会提示 "No Functions"。
 
 ### 环境变量
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `AI_API_KEY` | 模型密钥，**用 secret 配置**，不下发浏览器 | — |
-| `AI_BASE_URL` | OpenAI 兼容接口地址 | `https://api.deepseek.com/v1` |
-| `OCR_MODEL` | 第一段识别模型（需支持图片输入） | `deepseek-flash` |
-| `EXTRACT_MODEL` | 第二段字段抽取模型 | `deepseek-flash` |
+| `OCR_BASE_URL` / `OCR_MODEL` | 识别接口默认地址与模型 | 百炼 / `qwen-vl-ocr` |
+| `OCR_API_KEY` | 识别接口密钥（secret） | 未设置，需在页面填写或配置 |
+| `EXTRACT_BASE_URL` / `EXTRACT_MODEL` | 抽取接口默认地址与模型 | DeepSeek / `deepseek-flash` |
+| `EXTRACT_API_KEY` | 抽取接口密钥（secret） | — |
 | `ACCESS_CODE` | 可选访问码，防止接口被公开滥用 | 未设置 |
 
 ### 在线版限制
 
-- 浏览器最多渲染 **10 页**，每批 4 页发送，避免请求体过大
-- 原始 PDF 不上传，只上传渲染后的页面 JPEG，降低泄密风险
+- 浏览器最多渲染 **10 页**，每批 4 页发送
+- 原始 PDF 不上传，只上传渲染后的页面 JPEG
 - 识别精度取决于模型；金额/限值等关键字段请人工复核
 
 ---

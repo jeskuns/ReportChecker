@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = resolve(HERE, '../../templates');
-const OUT = resolve(HERE, '../public/templates.js');
+const OUT = resolve(HERE, '../site/templates.js');
 
 const DISPLAY_NAMES = {
   clause11_input_power_current: '输入功率和电流',
