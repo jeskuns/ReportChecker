@@ -13,6 +13,7 @@ export const ALLOWED_HOSTS = [
   'ark.cn-beijing.volces.com',
   'open.bigmodel.cn',
   'api.moonshot.cn',
+  'api.hunyuan.cloud.tencent.com',
   'api.openai.com',
   'api.siliconflow.cn',
 ];

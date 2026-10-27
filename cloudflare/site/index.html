@@ -76,30 +76,24 @@
     <div id="apiStatus" class="status-line">读取中…</div>
 
     <div class="section-title">识别接口（页面图像 → 文字）</div>
+    <label class="form-label">模型厂家</label>
+    <select id="ocrProvider" class="form-input"></select>
     <label class="form-label">Base URL</label>
     <input id="ocrBaseUrl" class="form-input" type="text" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1">
     <label class="form-label">识别模型</label>
     <input id="ocrModel" class="form-input" type="text" list="ocrModelOptions" placeholder="qwen-vl-ocr">
-    <datalist id="ocrModelOptions">
-      <option value="qwen-vl-ocr"></option>
-      <option value="qwen-vl-max"></option>
-      <option value="qwen-vl-plus"></option>
-      <option value="deepseek-flash"></option>
-    </datalist>
+    <datalist id="ocrModelOptions"></datalist>
     <label class="form-label">API Key</label>
     <input id="ocrApiKey" class="form-input" type="password" placeholder="阿里百炼 sk-" autocomplete="off">
 
     <div class="section-title">抽取接口（文字 → 字段 JSON）</div>
+    <label class="form-label">模型厂家</label>
+    <select id="extractProvider" class="form-input"></select>
     <label class="form-label">Base URL</label>
     <input id="extractBaseUrl" class="form-input" type="text" placeholder="https://api.deepseek.com/v1">
     <label class="form-label">抽取模型</label>
     <input id="extractModel" class="form-input" type="text" list="extractModelOptions" placeholder="deepseek-flash">
-    <datalist id="extractModelOptions">
-      <option value="deepseek-flash"></option>
-      <option value="deepseek-v4-pro"></option>
-      <option value="qwen-plus"></option>
-      <option value="gpt-4o-mini"></option>
-    </datalist>
+    <datalist id="extractModelOptions"></datalist>
     <label class="form-label">API Key</label>
     <input id="extractApiKey" class="form-input" type="password" placeholder="留空则使用服务端密钥" autocomplete="off">
     <div class="form-hint">Key 只保存在本机浏览器，随请求发给 Function，不写入服务端存储。</div>

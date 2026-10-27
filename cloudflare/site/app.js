@@ -25,6 +25,85 @@
   const accessCode = () => localStorage.getItem('rc_access_code') || '';
 
   const SETTINGS_KEY = 'rc_api_settings';
+
+  /* 模型厂家预设：识别接口用视觉模型，抽取接口用文本模型 */
+  const PROVIDERS = {
+    aliyun: {
+      label: '阿里（百炼）',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      ocr: ['qwen-vl-ocr', 'qwen-vl-max', 'qwen-vl-plus'],
+      extract: ['qwen-plus', 'qwen-max', 'qwen-turbo'],
+    },
+    deepseek: {
+      label: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      ocr: ['deepseek-flash'],
+      extract: ['deepseek-flash', 'deepseek-v4-pro'],
+    },
+    moonshot: {
+      label: 'Kimi（月之暗面）',
+      baseUrl: 'https://api.moonshot.cn/v1',
+      ocr: ['moonshot-v1-8k-vision-preview', 'moonshot-v1-32k-vision-preview'],
+      extract: ['kimi-k2-0711-preview', 'moonshot-v1-32k', 'moonshot-v1-8k'],
+    },
+    zhipu: {
+      label: 'GLM（智谱）',
+      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+      ocr: ['glm-4v-plus', 'glm-4v'],
+      extract: ['glm-4-plus', 'glm-4-air', 'glm-4-flash'],
+    },
+    doubao: {
+      label: '豆包（火山引擎）',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      ocr: ['doubao-vision-pro-32k', 'doubao-vision-lite-32k'],
+      extract: ['doubao-pro-32k', 'doubao-lite-32k'],
+    },
+    hunyuan: {
+      label: '元宝（腾讯混元）',
+      baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
+      ocr: ['hunyuan-vision'],
+      extract: ['hunyuan-pro', 'hunyuan-standard'],
+    },
+    siliconflow: {
+      label: '硅基流动',
+      baseUrl: 'https://api.siliconflow.cn/v1',
+      ocr: ['Qwen/Qwen2.5-VL-72B-Instruct', 'Qwen/Qwen2-VL-72B-Instruct'],
+      extract: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'],
+    },
+    openai: {
+      label: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      ocr: ['gpt-4o', 'gpt-4o-mini'],
+      extract: ['gpt-4o', 'gpt-4o-mini'],
+    },
+    custom: { label: '自定义', baseUrl: '', ocr: [], extract: [] },
+  };
+
+  function providerByBaseUrl(baseUrl) {
+    const b = (baseUrl || '').replace(/\/+$/, '');
+    for (const [key, p] of Object.entries(PROVIDERS)) {
+      if (p.baseUrl && p.baseUrl === b) return key;
+    }
+    return 'custom';
+  }
+
+  function fillProviderOptions(el) {
+    el.innerHTML = Object.entries(PROVIDERS)
+      .map(([key, p]) => `<option value="${key}">${p.label}</option>`).join('');
+  }
+
+  /** 按厂家联动 Base URL 与模型候选；keepModel 用于打开弹窗时保留已填模型 */
+  function applyProvider(kind, key, { keepModel = false } = {}) {
+    const p = PROVIDERS[key] || PROVIDERS.custom;
+    const baseEl = $(kind === 'ocr' ? 'ocrBaseUrl' : 'extractBaseUrl');
+    const modelEl = $(kind === 'ocr' ? 'ocrModel' : 'extractModel');
+    const listEl = $(kind === 'ocr' ? 'ocrModelOptions' : 'extractModelOptions');
+    const models = kind === 'ocr' ? p.ocr : p.extract;
+    listEl.innerHTML = models.map((m) => `<option value="${m}"></option>`).join('');
+    if (p.baseUrl) baseEl.value = p.baseUrl;
+    if (!keepModel || !modelEl.value) modelEl.value = models[0] || modelEl.value;
+  }
+
   function getSettings() {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
@@ -185,6 +264,8 @@
     $('btnCancelSettings').addEventListener('click', () => $('settingsModal').classList.add('hidden'));
     $('btnSaveSettings').addEventListener('click', saveSettingsFromForm);
     $('btnTest').addEventListener('click', testSettings);
+    $('ocrProvider').addEventListener('change', () => applyProvider('ocr', $('ocrProvider').value));
+    $('extractProvider').addEventListener('change', () => applyProvider('extract', $('extractProvider').value));
   }
 
   function createFileInput() {
@@ -230,6 +311,12 @@
     $('extractBaseUrl').value = cfg.extract.baseUrl || '';
     $('extractModel').value = cfg.extract.model || '';
     $('extractApiKey').value = cfg.extract.apiKey || '';
+    fillProviderOptions($('ocrProvider'));
+    fillProviderOptions($('extractProvider'));
+    $('ocrProvider').value = providerByBaseUrl(cfg.ocr.baseUrl);
+    $('extractProvider').value = providerByBaseUrl(cfg.extract.baseUrl);
+    applyProvider('ocr', $('ocrProvider').value, { keepModel: true });
+    applyProvider('extract', $('extractProvider').value, { keepModel: true });
     $('accessCode').value = accessCode();
     $('testResult').classList.add('hidden');
     $('settingsModal').classList.remove('hidden');
