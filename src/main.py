@@ -18,32 +18,37 @@
 import os
 import sys
 
+import asset_paths
 
-def _find_onnx_capi_dir(root):
-    """查找 onnxruntime capi DLL 目录（兼容不同 Python 版本和平台路径）。"""
+
+def _find_onnx_capi_dir():
+    """查找 onnxruntime capi DLL 目录（运行时目录优先，兼容旧项目内目录）。"""
     import glob as _glob
-    for lib_name in ("Lib", "lib"):
-        pattern = os.path.join(root, "python", lib_name, "site-packages", "onnxruntime", "capi")
-        if os.path.isdir(pattern):
-            return pattern
-        candidates = _glob.glob(os.path.join(
-            root, "python", lib_name, "python3.*", "site-packages", "onnxruntime", "capi"))
-        if candidates:
-            return candidates[0]
+    for root in (asset_paths.python_dir(),
+                 os.path.join(asset_paths.PROJECT_ROOT, "python")):
+        for lib_name in ("Lib", "lib"):
+            pattern = os.path.join(root, lib_name, "site-packages",
+                                   "onnxruntime", "capi")
+            if os.path.isdir(pattern):
+                return pattern
+            candidates = _glob.glob(os.path.join(
+                root, "python", lib_name, "python3.*", "site-packages",
+                "onnxruntime", "capi"))
+            if candidates:
+                return candidates[0]
     return None
 
 
 def _prepare_runtime_env():
     """初始化运行时环境：把本地依赖目录加入 PATH/DLL 搜索路径。"""
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tesseract_dir = os.path.join(root, "deps", "tesseract")
-    deps_dir = os.path.join(root, "deps")
+    tesseract_dir = asset_paths.tesseract_dir()
+    deps_dir = asset_paths.deps_dir()
 
     for p in (tesseract_dir, deps_dir):
         if p and p not in os.environ.get("PATH", "").split(os.pathsep):
             os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
 
-    onnx_capi = _find_onnx_capi_dir(root)
+    onnx_capi = _find_onnx_capi_dir()
     if onnx_capi and hasattr(os, "add_dll_directory"):
         os.add_dll_directory(onnx_capi)
 

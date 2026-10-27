@@ -2,7 +2,7 @@
 
 > Power Tool Test Report Checker
 > 桌面版：纯本地运行 · 多引擎 OCR 级联 · 模板驱动校验
-> Web 版：网页端 / 手机端 · 阿里云 DocMind 解析 PDF 与图片 · 模板驱动校验
+> Web 版：网页端 / 手机端 · 默认视觉大模型解析（支持硅基流动等） · 模板驱动校验
 
 ---
 
@@ -11,7 +11,7 @@
 | 形态 | 入口 | 文档解析方式 | 适用场景 |
 |------|------|-------------|---------|
 | **桌面版** | 双击根目录 `run.bat` | 本地多引擎 OCR 级联（PaddleOCR / RapidOCR / Tesseract / EasyOCR），可手动切换 AI 视觉模型 | 无网络、涉密环境；大批量本地处理 |
-| **本机网页版** | 双击 `webapp\run_web.bat` | 阿里云 DocMind（AK/SK）解析 PDF / 图片 / Word，可选视觉大模型 | 局域网内电脑 / 手机访问 |
+| **本机网页版** | 双击 `webapp\run_web.bat` | 默认视觉大模型解析（硅基流动 / 通义千问 / 豆包等），可选阿里云 DocMind | 局域网内电脑 / 手机访问 |
 | **在线网页版** | Cloudflare 部署（见下文） | 两段式：视觉模型 OCR → 大模型抽取字段 | 任何网络下的手机、电脑，打开网址即用 |
 
 > **在线地址**：https://reportchecker.pages.dev  
@@ -130,9 +130,10 @@
 | 组件 | 用途 | 版本 |
 |------|------|------|
 | FastAPI + Uvicorn | 后端 Web 服务 | 0.110+ / 0.29+ |
-| 阿里云 DocMind（默认） | 文档智能 OCR，AK/SK 鉴权，扫描件转文本与表格 | SDK 1.4+ |
-| 本地规则抽取 | 从 DocMind 结果按模板标签/表头抽取字段，无需大模型 | — |
-| 通义千问 qwen-vl-max（可选） | 视觉大模型解析，支持豆包 / 智谱 / Kimi / OpenAI 等兼容接口 | — |
+| 硅基流动（默认） | 视觉大模型解析，默认 `Qwen/Qwen2.5-VL-72B-Instruct` | — |
+| 通义千问 / 豆包 / 智谱 / Kimi / OpenAI | 视觉大模型解析，均为 OpenAI 兼容接口 | — |
+| 阿里云 DocMind（可选） | 文档智能 OCR，AK/SK 鉴权，扫描件转文本与表格 | SDK 1.4+ |
+| 本地规则引擎 | 从抽取结果按模板校验限值/公式/容差，不依赖模型下结论 | — |
 | PyMuPDF (fitz) | PDF 页面渲染、图片转 PDF、文本层提取 | 1.23+ |
 | python-docx | Word 文本提取 | 1.1+ |
 | 原生 HTML / CSS / JS | 响应式前端（电脑 + 手机同一套页面） | — |
@@ -142,17 +143,18 @@
 ```
 上传文件
 ├── PDF（文字型 / 扫描型）─┐
-├── Word (.docx) ──────────┼→ DocMind 文档智能解析（AK/SK）
-└── 图片 → 转 PDF ─────────┘        ↓
-                         文本 + 表格（HTML 表格转行）
-                                    ↓
-                     本地规则按模板标签/表头抽取字段
+├── Word (.docx) ──────────┼→ 页面渲染 / 文本提取
+└── 图片 ──────────────────┘        ↓
+                     视觉大模型按模板字段抽取
                                     ↓
                      本地规则引擎校验（公式 / 限值 / 容差）
 ```
 
-> **可选**：设置中把识别引擎切到「视觉大模型」，则跳过 DocMind，直接将页面图像发给
-> 通义千问等模型抽取字段（需 `sk-` 开头的 API Key）。
+> **默认**：网页端与手机端直接使用视觉大模型（默认硅基流动 SiliconFlow），只需在
+> 「接口设置」填入 `sk-` 开头的 API Key，无需阿里云 AK/SK。
+
+> **可选**：切到「阿里云 DocMind 解析 + 本地规则抽取」，则使用 AccessKey 调用文档智能 OCR，
+> 再由本地规则抽取字段，适用于离线内网或已有阿里云账号的场景。
 
 > **关键设计**：识别只负责「读文档」，是否合格由本地规则引擎判定，结果可复核、可追溯，不依赖模型自行下结论。
 
@@ -161,9 +163,10 @@
 ## 项目结构
 
 ```
-ReportChecker/
-├── run.bat                 # 一键启动脚本
-├── run.py                  # 源码模式启动器
+ReportChecker/               # 项目目录仅保留源码（约 15 MB）
+├── run.bat                 # 一键启动（自动定位外部运行时目录）
+├── setup_env.bat           # 首次运行：从国内镜像安装 Python 运行时
+├── run.py                  # 源码模式启动器（缺依赖时引导一键安装）
 ├── requirements.txt        # Python 依赖
 ├── ReportChecker.spec      # PyInstaller 打包配置
 ├── README.md               # 本文件
@@ -176,8 +179,14 @@ ReportChecker/
 │   ├── ai_ocr.py           # AI 视觉模型识别引擎（手动选择时使用）
 │   ├── ai_config.py        # AI 模型配置（地址 / 模型 / Key，模型名不写死）
 │   ├── config.py           # 配置管理（标准分类、模板路径、限值）
+│   ├── asset_paths.py      # 运行时资源路径（外部目录优先，兼容旧项目内目录）
+│   ├── mirrors.py          # 国内镜像地址（PyPI / Python / ModelScope / 飞桨）
+│   ├── env_installer.py    # 环境与模型一键安装（pip + 模型下载）
 │   ├── utils.py            # 工具函数（数值解析、容差检查）
 │   └── coordinate_tool.py  # PDF 坐标测量工具（独立运行）
+├── tools/
+│   ├── install_env.py      # 命令行一键安装（无界面可用）
+│   └── bootstrap_python.ps1# 无 Python 时从华为云/npmmirror/阿里云引导安装
 ├── templates/              # JSON 校验模板（按标准章节命名）
 │   ├── GB3883/             # 通用安全（按章节：clause11/12/20/26、appendix_c/d）
 │   ├── GB3883/GB3883_2XX/  # 手持式专用（20种工具）
@@ -186,12 +195,6 @@ ReportChecker/
 │   ├── GB4208/             # 外壳防护等级（IP）
 │   ├── GB4343/             # EMC 发射
 │   └── GB17625/            # 谐波/闪烁
-├── scripts/                # 辅助脚本
-│   ├── pdf_to_word.py      # PDF → Word 转换
-│   └── gen_heating_excel.py # 温升模板 Excel 生成器
-├── deps/                   # 本地依赖（无需系统安装）
-│   └── tesseract/          # Tesseract OCR 便携版
-├── models/                 # OCR 模型（paddle_det/paddle_rec/rapid/easyocr）
 ├── result/                 # 校验结果输出目录
 ├── webapp/                 # Web 版（网页端 / 手机端）
 │   ├── run_web.bat         # 一键启动脚本
@@ -207,8 +210,22 @@ ReportChecker/
 │   ├── uploads/            # 上传文件临时目录（自动清理，不入库）
 │   └── api_config.json     # AI Key 配置（运行时生成，不入库）
 ├── build/ / dist/          # PyInstaller 构建产物
-└── venv/                   # Python 虚拟环境
+└── cloudflare/             # 在线网页版（Cloudflare Pages + Functions）
 ```
+
+大型资源默认放在外部运行目录，**不占用项目文件夹**：
+
+```
+%LOCALAPPDATA%\ReportChecker\runtime\
+├── python\                 # 内嵌 Python 3.11 环境
+├── deps\tesseract\         # Tesseract OCR 便携版
+├── models\ocr\             # PaddleOCR / RapidOCR / EasyOCR 模型
+├── reports\                # 标准报告 PDF
+└── web\node_modules\       # Cloudflare 网页版依赖（可 npm ci 还原）
+```
+
+可用环境变量 `REPORTCHECKER_HOME`，或在项目根目录 `runtime_config.json` 中写入
+`{"runtime_root": "D:\\ReportChecker\\runtime"}` 指定其他位置。
 
 ---
 
@@ -223,36 +240,56 @@ ReportChecker/
 - 可访问阿里百炼接口的网络
 - 手机端只需浏览器，无需安装 App
 
-### 桌面版安装步骤
+### 桌面版安装步骤（推荐，一键完成）
+
+```text
+1. 双击 run.bat
+   - 未检测到 Python 时，自动从「华为云 / npmmirror / 阿里云」下载并安装内嵌 Python 3.11
+   - 缺少依赖包时，启动器会询问是否立即安装（清华 TUNA / 阿里云 PyPI）
+
+2. 打开应用后，菜单栏 → 设置 → 环境与模型（一键安装）
+   - 勾选「PaddleOCR 增强引擎」可获得更高识别精度（可选，约 300–600 MB）
+   - 点击「一键安装 / 修复」，等待完成，重启应用
+
+3. 安装后可直接双击 run.bat 使用，无需系统安装 Python 或 Tesseract
+```
+
+所有下载均走国内镜像：
+
+| 资源 | 镜像 |
+|---|---|
+| pip 依赖 | 清华 TUNA / 阿里云 PyPI |
+| Python 3.11 内嵌包 | 华为云 / npmmirror / 阿里云 |
+| RapidOCR ONNX 模型 | ModelScope |
+| PaddleOCR 推理模型 | 百度飞桨 BOS |
+| get-pip.py | 阿里云 |
+
+命令行安装（无界面可用）：
 
 ```bash
-# 1. 安装 Python 3.11（勾选 "Add Python to PATH"）
-
-# 2. 创建虚拟环境并安装依赖
-python -m venv venv
-venv\Scripts\pip install -r requirements.txt
-
-# 3. 启动程序
-run.bat
+python tools\install_env.py --status      # 查看状态
+python tools\install_env.py --all         # 安装依赖 + 全部模型
+python tools\install_env.py --models-only # 只下载 OCR 模型
+python tools\install_env.py --no-paddle   # 跳过 PaddleOCR（轻量）
 ```
 
 ### Web 版安装步骤
 
 ```bash
 # 1. 安装依赖（轻量，仅 FastAPI / PyMuPDF / requests 等）
-python -m pip install -r webapp\requirements.txt
+python -m pip install -r webapp\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 2. 启动服务（run_web.bat 会自动检查依赖）
 webapp\run_web.bat
 ```
 
-### 完全离线使用
+### 运行时资源与离线使用
 
-本项目已将所有依赖本地化：
-- **Tesseract OCR**：已包含在 `deps/tesseract/` 中（便携版）
-- **PaddleOCR 模型**：已包含在 `models/ocr/paddle_det/` 和 `models/ocr/paddle_rec/` 中
-- **RapidOCR 模型**：已包含在 `models/ocr/rapid/` 中
-- **EasyOCR 模型**：已包含在 `models/ocr/easyocr/` 中
+- 大型资源（Python 环境、OCR 模型、Tesseract、报告 PDF）不在项目目录内，
+  默认位于 `%LOCALAPPDATA%\ReportChecker\runtime`。
+- 安装完成后完全离线可用；一键安装仅在缺失时联网，且只使用国内镜像。
+- Tesseract 为可选备用引擎（没有国内官方安装包镜像），未安装不影响使用，
+  RapidOCR / PaddleOCR 可替代。
 
 ---
 
@@ -290,7 +327,7 @@ webapp\run_web.bat
 
 说明：
 
-- 服务商预置含 **DeepSeek V4 Flash**（`deepseek-flash`，支持图片输入），桌面端已预填其地址、模型与 Key，可直接选用
+- 服务商预置含 **硅基流动 SiliconFlow**（默认，`Qwen/Qwen2.5-VL-72B-Instruct`）、通义千问、豆包、智谱、Kimi、DeepSeek、OpenAI 等，模型名称可直接改
 - AI 仅在手动选中时调用，**自动模式不会走 AI**，避免产生调用费用
 - 配置保存在根目录 `ai_config.json`（已加入 `.gitignore`，不入库）
 - 也可用环境变量统一指定：`AI_VISION_BASE_URL` / `AI_VISION_MODEL` / `AI_VISION_API_KEY`

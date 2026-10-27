@@ -298,7 +298,7 @@ function fillProviderOptions(current) {
   sel.innerHTML = providerPresets
     .map((p) => `<option value="${p.key}">${p.label}</option>`)
     .join('');
-  sel.value = current || 'qwen';
+  sel.value = current || 'siliconflow';
   applyProvider(sel.value, false);
 }
 
@@ -321,7 +321,7 @@ async function openSettings() {
     enginePresets = cfg.engines || [];
     $('cfgEngine').innerHTML = enginePresets
       .map((e) => `<option value="${e.key}">${e.label}</option>`).join('');
-    applyEngine(cfg.engine || 'docmind');
+    applyEngine(cfg.engine || 'ai_vision');
     fillProviderOptions(cfg.provider);
     $('cfgBase').value = cfg.base_url;
     $('cfgModel').value = cfg.model;
@@ -330,7 +330,7 @@ async function openSettings() {
     $('cfgAkSecret').value = '';
     $('cfgKeyHint').textContent = cfg.has_key
       ? `已配置：${cfg.key_masked}（留空表示不修改）`
-      : '未配置。百炼请填 sk- 开头的 API Key';
+      : '未配置。硅基流动请填 sk- 开头的 API Key';
     $('cfgAkIdHint').textContent = cfg.has_access_key
       ? `已保存：${cfg.access_key_id_masked}（留空表示不修改）` : '';
     $('cfgAkSecretHint').textContent = cfg.has_access_key

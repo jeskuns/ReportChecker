@@ -63,11 +63,11 @@ PROVIDER_PRESETS = {
     },
 }
 
-# 默认值：地址默认 DeepSeek，模型不写死，全部可在设置里修改
+# 默认值：地址与模型默认硅基流动，全部可在设置里修改
 DEFAULT_AI_CONFIG = {
-    'base_url': PROVIDER_PRESETS['deepseek']['base_url'],
-    'ocr_model': PROVIDER_PRESETS['deepseek']['models'][0],
-    'extract_model': PROVIDER_PRESETS['deepseek']['models'][0],
+    'base_url': PROVIDER_PRESETS['siliconflow']['base_url'],
+    'ocr_model': PROVIDER_PRESETS['siliconflow']['models'][0],
+    'extract_model': PROVIDER_PRESETS['siliconflow']['models'][0],
     'api_key': '',
     'timeout': 120,
 }

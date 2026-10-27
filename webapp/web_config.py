@@ -75,22 +75,22 @@ PROVIDER_PRESETS = {
     },
 }
 
-DEFAULT_PROVIDER = 'qwen'
+DEFAULT_PROVIDER = 'siliconflow'
 
-# 识别引擎：docmind（AK/SK + 本地规则，默认）/ ai_vision（视觉大模型）
+# 识别引擎：ai_vision（视觉大模型，默认，网页端/手机端）/ docmind（AK/SK + 本地规则，可选）
 ENGINES = {
+    'ai_vision': {
+        'label': '视觉大模型解析（默认）',
+        'note': '把页面图像发给视觉大模型抽取字段，需要所选服务商的 API Key',
+    },
     'docmind': {
         'label': '阿里云 DocMind 解析 + 本地规则抽取',
         'note': '使用 AccessKey 调用文档智能 OCR，再由规则引擎抽取字段，无需 sk- API Key',
     },
-    'ai_vision': {
-        'label': '视觉大模型解析',
-        'note': '把页面图像发给视觉大模型抽取字段，需要所选服务商的 API Key',
-    },
 }
-DEFAULT_ENGINE = 'docmind'
+DEFAULT_ENGINE = 'ai_vision'
 
-# 默认 API 配置：默认使用 DocMind + 通义千问（备用）
+# 默认 API 配置：默认视觉大模型（硅基流动），DocMind 作为可选引擎
 # 模型名称不写死：优先取环境变量 AI_VISION_MODEL，否则取服务商预设，仍可在页面修改
 DEFAULT_API_CONFIG = {
     'engine': DEFAULT_ENGINE,

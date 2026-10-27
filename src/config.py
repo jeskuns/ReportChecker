@@ -6,17 +6,23 @@
 import os
 from typing import Dict, List
 
-# 路径配置
+import asset_paths
+
+# 路径配置（大型资源放在外部运行目录，项目目录只留源码）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, 'templates')
 RESULT_DIR = os.path.join(PROJECT_ROOT, 'result')
-MODELS_DIR = os.path.join(PROJECT_ROOT, 'models')
+MODELS_DIR = asset_paths.models_dir()
+REPORTS_DIR = asset_paths.reports_dir()
 
 # 确保目录存在
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
-os.makedirs(MODELS_DIR, exist_ok=True)
+try:
+    os.makedirs(MODELS_DIR, exist_ok=True)
+except OSError:
+    pass
 
 # 标准分类（键为英文目录名）
 STANDARDS: Dict[str, Dict[str, str]] = {

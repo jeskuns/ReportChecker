@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QPushButton, QLineEdit, QProgressBar,
     QColorDialog, QSlider, QDialog, QFormLayout, QTextEdit,
     QSizePolicy, QSplitter, QSplashScreen, QTableWidget, QTableWidgetItem,
-    QHeaderView, QComboBox,
+    QHeaderView, QComboBox, QCheckBox, QPlainTextEdit,
 )
 from PyQt6.QtGui import (
     QImage, QPixmap, QColor, QFont, QCursor, QIcon, QPainter,
@@ -28,6 +28,8 @@ from ai_config import (PROVIDER_PRESETS, load_ai_config, mask_key as mask_ai_key
                        save_ai_config)
 from ai_ocr import (AI_ENGINE_NAME, extract_fields_from_text,
                     test_connection as test_ai_connection)
+import asset_paths
+import env_installer
 
 # =========================== 主题常量 ===========================
 
@@ -665,6 +667,283 @@ class AISettingsDialog(QDialog):
         self.accept()
 
 
+# =========================== 环境与模型设置 ===========================
+
+class EnvInstallWorker(QThread):
+    progress = pyqtSignal(int, str)
+    log = pyqtSignal(str)
+    done = pyqtSignal(bool, str)
+
+    def __init__(self, include_paddle: bool, force_models: bool, parent=None):
+        super().__init__(parent)
+        self._include_paddle = include_paddle
+        self._force_models = force_models
+        self._cancel = False
+
+    def cancel(self):
+        self._cancel = True
+
+    def run(self):
+        try:
+            env_installer.install(
+                include_paddle=self._include_paddle,
+                force_models=self._force_models,
+                log=self.log.emit,
+                progress=lambda f, m: self.progress.emit(int(f * 100), m),
+                cancel=lambda: self._cancel,
+            )
+            self.done.emit(True, '安装完成')
+        except env_installer.InstallCancelled:
+            self.done.emit(False, '已取消')
+        except Exception as exc:
+            self.done.emit(False, str(exc))
+
+
+class EnvSettingsDialog(QDialog):
+    """环境与模型 — 查看资源状态并一键安装（国内镜像）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._worker: Optional[EnvInstallWorker] = None
+        self._init_ui()
+        self._refresh_status()
+
+    def _init_ui(self):
+        self.setWindowTitle("环境与模型")
+        self.setFixedSize(780, 660)
+        self.setStyleSheet(f"background: {Theme.BG()};")
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        # —— 运行目录 ——
+        path_card = QWidget()
+        path_card.setStyleSheet(f"background: {Theme.CARD()}; border-radius: {R};")
+        path_layout = QVBoxLayout(path_card)
+        path_layout.setContentsMargins(20, 16, 20, 16)
+        path_layout.setSpacing(8)
+
+        title = QLabel("运行目录（大型资源不放在项目文件夹）")
+        title.setFont(QFont("Microsoft YaHei", 13, QFont.Weight.Bold))
+        title.setStyleSheet(f"color: {Theme.TEXT()};")
+        path_layout.addWidget(title)
+
+        row = QHBoxLayout()
+        self.path_edit = QLineEdit(asset_paths.runtime_root())
+        self.path_edit.setReadOnly(True)
+        self.path_edit.setStyleSheet(
+            f"background: {Theme.BG()}; color: {Theme.TEXT_SEC()};"
+            f" border: 1px solid {Theme.BORDER()}; border-radius: 4px; padding: 6px;")
+        open_btn = QPushButton("打开目录")
+        open_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        open_btn.setStyleSheet(Theme.BTN_SECONDARY())
+        open_btn.clicked.connect(self._open_runtime_dir)
+        row.addWidget(self.path_edit, 1)
+        row.addWidget(open_btn)
+        path_layout.addLayout(row)
+
+        hint = QLabel("可通过环境变量 REPORTCHECKER_HOME 或项目根目录 runtime_config.json 指定其他位置。")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"font-size: 12px; color: {Theme.TEXT_SEC()};")
+        path_layout.addWidget(hint)
+        layout.addWidget(path_card)
+
+        # —— 资源状态 ——
+        status_card = QWidget()
+        status_card.setStyleSheet(f"background: {Theme.CARD()}; border-radius: {R};")
+        status_layout = QVBoxLayout(status_card)
+        status_layout.setContentsMargins(20, 16, 20, 16)
+        status_layout.setSpacing(8)
+
+        head = QHBoxLayout()
+        status_title = QLabel("资源状态")
+        status_title.setFont(QFont("Microsoft YaHei", 13, QFont.Weight.Bold))
+        status_title.setStyleSheet(f"color: {Theme.TEXT()};")
+        head.addWidget(status_title)
+        head.addStretch()
+        refresh_btn = QPushButton("刷新状态")
+        refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        refresh_btn.setStyleSheet(Theme.BTN_SECONDARY())
+        refresh_btn.clicked.connect(self._refresh_status)
+        head.addWidget(refresh_btn)
+        status_layout.addLayout(head)
+
+        self.status_table = QTableWidget(0, 3)
+        self.status_table.setHorizontalHeaderLabels(["资源", "状态", "说明"])
+        self.status_table.verticalHeader().setVisible(False)
+        self.status_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.status_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.status_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.status_table.setShowGrid(False)
+        header = self.status_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.status_table.setColumnWidth(0, 210)
+        self.status_table.setColumnWidth(1, 90)
+        self.status_table.setFixedHeight(210)
+        self.status_table.setStyleSheet(
+            f"QTableWidget {{ background: {Theme.CARD()}; border: none;"
+            f" color: {Theme.TEXT()}; font-size: 12px; }}"
+            f"QHeaderView::section {{ background: {Theme.CARD()};"
+            f" color: {Theme.TEXT_SEC()}; border: none; padding: 4px;"
+            f" font-size: 12px; }}")
+        status_layout.addWidget(self.status_table)
+        layout.addWidget(status_card)
+
+        # —— 选项 + 进度 ——
+        opt_card = QWidget()
+        opt_card.setStyleSheet(f"background: {Theme.CARD()}; border-radius: {R};")
+        opt_layout = QVBoxLayout(opt_card)
+        opt_layout.setContentsMargins(20, 14, 20, 14)
+        opt_layout.setSpacing(8)
+
+        self.paddle_check = QCheckBox(
+            "同时安装 PaddleOCR 增强引擎（可选，约 300–600 MB，扫描件精度更高）")
+        self.paddle_check.setStyleSheet(f"color: {Theme.TEXT()}; font-size: 12px;")
+        opt_layout.addWidget(self.paddle_check)
+
+        self.force_check = QCheckBox("强制重新下载 OCR 模型")
+        self.force_check.setStyleSheet(f"color: {Theme.TEXT()}; font-size: 12px;")
+        opt_layout.addWidget(self.force_check)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        opt_layout.addWidget(self.progress_bar)
+
+        self.progress_label = QLabel("等待操作")
+        self.progress_label.setStyleSheet(f"font-size: 12px; color: {Theme.TEXT_SEC()};")
+        opt_layout.addWidget(self.progress_label)
+
+        self.log_edit = QPlainTextEdit()
+        self.log_edit.setReadOnly(True)
+        self.log_edit.setFixedHeight(110)
+        self.log_edit.setStyleSheet(
+            f"background: {Theme.BG()}; color: {Theme.TEXT_SEC()};"
+            f" border: 1px solid {Theme.BORDER()}; border-radius: 4px;"
+            f" font-family: Consolas, monospace; font-size: 11px;")
+        opt_layout.addWidget(self.log_edit)
+        layout.addWidget(opt_card)
+
+        layout.addStretch()
+
+        # —— 按钮 ——
+        btn_row = QHBoxLayout()
+        self.install_btn = QPushButton("一键安装 / 修复")
+        self.install_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.install_btn.setStyleSheet(Theme.BTN_PRIMARY())
+        self.install_btn.clicked.connect(self._start_install)
+        btn_row.addWidget(self.install_btn)
+        btn_row.addStretch()
+        self.close_btn = QPushButton("关闭")
+        self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.close_btn.setStyleSheet(Theme.BTN_SECONDARY())
+        self.close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(self.close_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+
+    def _refresh_status(self):
+        items = env_installer.check_environment()
+        self.status_table.setRowCount(len(items))
+        for row, item in enumerate(items):
+            name = QTableWidgetItem(item['label'])
+            name.setForeground(QColor(Theme.TEXT()))
+            self.status_table.setItem(row, 0, name)
+
+            if item['ok']:
+                text, color = "✓ 已就绪", Theme.SUCCESS()
+            elif item['required']:
+                text, color = "✗ 缺失", Theme.DANGER()
+            else:
+                text, color = "○ 未安装", Theme.TEXT_SEC()
+            status = QTableWidgetItem(text)
+            status.setForeground(QColor(color))
+            self.status_table.setItem(row, 1, status)
+
+            detail = QTableWidgetItem(item['detail'])
+            detail.setForeground(QColor(Theme.TEXT_SEC()))
+            self.status_table.setItem(row, 2, detail)
+            self.status_table.setRowHeight(row, 30)
+
+        missing_paddle = not next(
+            (i['ok'] for i in items if i['key'] == 'paddle'), False)
+        self.paddle_check.setChecked(missing_paddle)
+
+    def _open_runtime_dir(self):
+        path = asset_paths.runtime_root()
+        try:
+            os.makedirs(path, exist_ok=True)
+            os.startfile(path)
+        except Exception as exc:
+            QMessageBox.warning(self, "无法打开目录", str(exc))
+
+    def _start_install(self):
+        if self._worker and self._worker.isRunning():
+            return
+        self.install_btn.setEnabled(False)
+        self.close_btn.setEnabled(False)
+        self.progress_bar.setValue(0)
+        self.progress_label.setText("准备中...")
+        self.log_edit.clear()
+
+        self._worker = EnvInstallWorker(
+            self.paddle_check.isChecked(), self.force_check.isChecked(), self)
+        self._worker.progress.connect(self._on_progress)
+        self._worker.log.connect(self._append_log)
+        self._worker.done.connect(self._on_done)
+        self._worker.start()
+
+    def _on_progress(self, percent: int, message: str):
+        self.progress_bar.setValue(percent)
+        self.progress_label.setText(message)
+
+    def _append_log(self, line: str):
+        self.log_edit.appendPlainText(line)
+        bar = self.log_edit.verticalScrollBar()
+        bar.setValue(bar.maximum())
+
+    def _on_done(self, ok: bool, message: str):
+        self.install_btn.setEnabled(True)
+        self.close_btn.setEnabled(True)
+        self.progress_bar.setValue(100 if ok else self.progress_bar.value())
+        self.progress_label.setText(message)
+        self._refresh_status()
+        if ok:
+            QMessageBox.information(
+                self, "安装完成",
+                "环境与模型已安装完成。\n\n请重启 ReportChecker 以加载新模型。")
+        else:
+            QMessageBox.warning(self, "安装未完成", message)
+
+    def _confirm_stop_worker(self) -> bool:
+        if not (self._worker and self._worker.isRunning()):
+            return True
+        ret = QMessageBox.question(
+            self, "正在安装",
+            "安装仍在进行，确定取消并关闭吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ret != QMessageBox.StandardButton.Yes:
+            return False
+        self._worker.cancel()
+        self._worker.wait(5000)
+        return True
+
+    def closeEvent(self, event):
+        if self._confirm_stop_worker():
+            event.accept()
+        else:
+            event.ignore()
+
+    def reject(self):
+        if self._confirm_stop_worker():
+            super().reject()
+
+
 # =========================== 工作线程 ===========================
 
 class CheckWorker(QThread):
@@ -1119,7 +1398,7 @@ class ReportCheckerApp(QMainWindow):
         new_act.triggered.connect(self._new_template)
         file_menu.addAction(new_act)
         gen_act = QAction("生成 Word 底稿", self)
-        gen_act.setToolTip("把 models/reports 下标准报告 PDF 转为 Word 版式底稿")
+        gen_act.setToolTip("把运行目录 reports 下的标准报告 PDF 转为 Word 版式底稿")
         gen_act.triggered.connect(self._generate_word_drafts)
         file_menu.addAction(gen_act)
         file_menu.addSeparator()
@@ -1132,6 +1411,10 @@ class ReportCheckerApp(QMainWindow):
         appear_act = QAction("外观设置", self)
         appear_act.triggered.connect(self._show_settings)
         settings_menu.addAction(appear_act)
+        env_act = QAction("环境与模型（一键安装）", self)
+        env_act.setToolTip("从国内镜像安装 Python 依赖与 OCR 模型")
+        env_act.triggered.connect(self._show_env_settings)
+        settings_menu.addAction(env_act)
         ai_act = QAction("AI 模型设置", self)
         ai_act.setToolTip("配置 AI 视觉模型的接口地址、模型名称与 API Key")
         ai_act.triggered.connect(self._show_ai_settings)
@@ -1379,6 +1662,19 @@ class ReportCheckerApp(QMainWindow):
             f"QStatusBar {{ background: {Theme.CARD()}; color: {Theme.TEXT_SEC()};"
             f" border-top: 1px solid {Theme.BORDER()}; font-size: 12px; }}")
         self.status_bar.showMessage("就绪 — 请先打开报告文件")
+        QTimer.singleShot(1200, self._check_env_hint)
+
+    def _check_env_hint(self):
+        """启动后提示缺失的环境/模型，引导到一键安装。"""
+        try:
+            if not env_installer.rapid_models_ready():
+                self.status_bar.showMessage(
+                    "OCR 模型未安装 → 设置 → 环境与模型（一键安装，国内镜像）", 0)
+            elif env_installer.missing_core_packages():
+                self.status_bar.showMessage(
+                    "部分 Python 依赖缺失 → 设置 → 环境与模型（一键安装）", 0)
+        except Exception:
+            pass
 
     # ── 引擎标签 ──
 
@@ -1559,7 +1855,13 @@ class ReportCheckerApp(QMainWindow):
             self._refresh_engine_labels()
             cfg = load_ai_config()
             self.status_bar.showMessage(
-                f"AI 模型已保存：{cfg['model']} @ {cfg['base_url']}", 0)
+                f"AI 模型已保存：{cfg['ocr_model']} @ {cfg['base_url']}", 0)
+
+    def _show_env_settings(self):
+        """打开环境与模型安装界面"""
+        dialog = EnvSettingsDialog(self)
+        dialog.exec()
+        self._refresh_engine_labels()
 
     # ── 文件操作 ──
 
@@ -1717,9 +2019,7 @@ class ReportCheckerApp(QMainWindow):
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace")
             out, _ = proc.communicate(timeout=600)
-            dst = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "models", "reports", "word_drafts")
+            dst = os.path.join(asset_paths.reports_dir(), "word_drafts")
             if proc.returncode == 0:
                 QMessageBox.information(
                     self, "生成完成",

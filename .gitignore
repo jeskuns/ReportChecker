@@ -3,6 +3,9 @@ deps/
 python/
 models/
 
+# ---- 运行时目录配置（仅本机路径）----
+runtime_config.json
+
 # ---- 构建产物与输出 ----
 build/
 dist/
@@ -33,3 +36,6 @@ cloudflare/.wrangler/
 cloudflare/.dev.vars
 
 cloudflare/site/.wrangler/
+
+# ---- 本地生成的分享包 ----
+.trae-html-share-packages/

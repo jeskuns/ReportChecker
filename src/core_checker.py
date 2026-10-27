@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 # cv2 延迟导入：仅在预处理引擎首次使用时才加载，避免启动时加载数百 MB 的 DLL
 
+import asset_paths
 from utils import (
     parse_number,
     read_json_file,
@@ -37,17 +38,16 @@ from adobe_window_capture import AdobeWindowCapture
 from config import (
     TEMPLATES_DIR,
     RESULT_DIR,
-    MODELS_DIR,
     DEFAULT_LIMITS,
     TOLERANCE,
     OCR_CONFIG,
 )
 
 
-# ───────────────── 项目本地依赖路径 ─────────────────
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEPS_DIR = os.path.join(PROJECT_ROOT, 'deps')
-TESSERACT_DIR = os.path.join(DEPS_DIR, 'tesseract')
+# ───────────────── 项目本地依赖路径（运行时目录优先，兼容旧目录）─────────────────
+PROJECT_ROOT = asset_paths.PROJECT_ROOT
+DEPS_DIR = asset_paths.deps_dir()
+TESSERACT_DIR = asset_paths.tesseract_dir()
 TESSERACT_EXE = os.path.join(TESSERACT_DIR, 'tesseract.exe')
 TESSDATA_DIR = os.path.join(TESSERACT_DIR, 'tessdata')
 
@@ -56,7 +56,7 @@ TESSDATA_DIR = os.path.join(TESSERACT_DIR, 'tessdata')
 #   models/ocr/paddle_det/   ← PaddleOCR 检测模型（inference.pdiparams 等）
 #   models/ocr/paddle_rec/   ← PaddleOCR 识别模型
 #   models/ocr/rapid/        ← RapidOCR 的 3 个 onnx 模型
-OCR_MODEL_DIR = os.path.join(MODELS_DIR, 'ocr')
+OCR_MODEL_DIR = asset_paths.ocr_models_dir()
 PADDLE_DET_DIR = os.path.join(OCR_MODEL_DIR, 'paddle_det')
 PADDLE_REC_DIR = os.path.join(OCR_MODEL_DIR, 'paddle_rec')
 RAPID_MODEL_DIR = os.path.join(OCR_MODEL_DIR, 'rapid')
