@@ -1,0 +1,55 @@
+# ============================================================================
+# 自动部署 ReportChecker 网页端到 Cloudflare Pages
+# ----------------------------------------------------------------------------
+# 触发方式：推送到 main 分支（或手动触发）
+#
+# 效果：
+#   git push  →  自动构建网页端  →  自动发布到 reportchecker.pages.dev
+#   全程不需要任何 Token 出现在你的电脑上。
+#
+# 需要的仓库密钥（需在 GitHub 仓库 Settings > Secrets 中配置）：
+#   CLOUDFLARE_API_TOKEN   —— 权限：Account → Cloudflare Pages → Edit
+#   CLOUDFLARE_ACCOUNT_ID
+# ============================================================================
+
+name: Deploy ReportChecker to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 同时只跑一个，新的推送取消正在跑的旧任务
+concurrency:
+  group: cloudflare-pages-reportchecker
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # 1) 安装依赖并构建网页端（脚本产出 cloudflare/site/）
+      - name: Install & Build web
+        working-directory: cloudflare
+        run: |
+          npm install
+          npm run build
+
+      # 2) 部署到 Cloudflare Pages 项目 reportchecker
+      - name: Deploy to Cloudflare Pages
+        working-directory: cloudflare
+        run: npx --yes wrangler@4 pages deploy site --project-name=reportchecker --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
