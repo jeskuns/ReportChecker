@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       # 1) 安装依赖并构建网页端（脚本产出 cloudflare/site/）
       - name: Install & Build web
