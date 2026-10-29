@@ -193,4 +193,40 @@
   .test-result { border-radius: var(--iso-radius); font-size: 13px; }
 
   .toast { bottom: calc(24px + env(safe-area-inset-bottom)); border-radius: var(--iso-radius); font-size: 14px; }
+
+  /* ---------- SPA 一致性补齐 ---------- */
+  /* 表格里的操作链接：手机端保证 40px 触控高度 */
+  td a, th a {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 40px !important;
+    padding: 6px 8px !important;
+  }
+
+  /* 正文与列表里的行内链接：加下划线，扩大可点区域 */
+  p a, li a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 4px 3px;
+  }
+
+  /* 独立成组的链接（工具条、卡片底部）统一为触控尺寸 */
+  .toolbar a, .card-actions a, .item-actions a {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: var(--iso-tap) !important;
+    padding: 8px 12px !important;
+  }
+
+  /* 内联样式网格：手机端按内容宽度自适应列数，避免并排溢出被裁 */
+  [style*="grid-template-columns"] {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* 内联 flex 行：允许换行 */
+  [style*="display: flex"], [style*="display:flex"] {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
 }

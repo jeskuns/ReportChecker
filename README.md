@@ -520,11 +520,11 @@ npm run dev        # http://127.0.0.1:8787
 
 ### 部署（本机已验证可用）
 
-账号：`jeskuns@outlook.com`　Account ID：`0fbd1583e54c3e807a09c46d4913c83b`
+账号：`jeskuns@outlook.com`　Account ID：`<值见 Cloudflare 控制台 → 账户详情页>`
 
 ```powershell
 $env:CLOUDFLARE_API_TOKEN = "<Pages:Edit Token>"
-$env:CLOUDFLARE_ACCOUNT_ID = "0fbd1583e54c3e807a09c46d4913c83b"
+$env:CLOUDFLARE_ACCOUNT_ID = "<值见 Cloudflare 控制台 → 账户详情页>"
 
 cd cloudflare
 npm run build
@@ -673,3 +673,43 @@ pyinstaller ReportChecker.spec
 
 设计：王坤  
 借助 AI 开发
+
+
+## 📱 移动端 ISO 版式（≤768px）
+
+网页版与桌面版同一套 ISO 口径（白底 + ISO 蓝 #0B5FA5、正文 16px、44px 触控目标）。
+
+- 覆盖层：`webapp/static/iso-mobile.css`，由 `webapp/static/index.html` 以 `/static/iso-mobile.css` 绝对路径引入 —— 因此**必须通过 HTTP 访问**才能生效，直接双击打开 HTML 时样式与 viewport 都取不到。
+- 覆盖层负责统一：表单与按钮尺寸、结果卡片圆角与留白、弹窗与提示条、触控目标下限；组件级配色仍由原有样式决定。
+- 验收：起 `run_web.bat`（或 FastAPI 服务）后用 390×844 无头浏览器实测。当前基线：0 个 <40px 触控目标、无横向溢出。
+
+<!--DEPLOY_CARD-->
+## 部署与推送（速查卡）
+
+
+### 推送（Push）
+- 仓库：`jeskuns/ReportChecker`，默认分支 `main`。
+- 本仓库 push **仅入库**；在线版需**手动** `wrangler pages deploy` 才会上线（无 GitHub Actions 自动部署）。
+- 日常改动后：
+  ```powershell
+  git add -A
+  git commit -m "描述"
+  git push origin main
+  ```
+- 远程地址如需改：`git remote set-url origin https://github.com/jeskuns/ReportChecker.git`
+
+### 部署（Deploy）
+- 在线版：Cloudflare Pages 项目 `reportchecker` → `https://reportchecker.pages.dev`，**不是** Actions 自动部署，需手动：
+  ```powershell
+  cd cloudflare
+  npm run build
+  cd site
+  npx wrangler pages deploy . --project-name=reportchecker
+  ```
+- 在线版密钥：`npx wrangler pages secret put EXTRACT_API_KEY --project-name=reportchecker`；`cloudflare/wrangler.toml` 的 `[vars]` 含 `OCR_*` / `EXTRACT_*` 配置。
+- 桌面版：`pyinstaller ReportChecker.spec` → `dist/ReportChecker/ReportChecker.exe`。
+- 账号 `jeskuns@outlook.com`，Account ID `<值见 Cloudflare 控制台 → 账户详情页>`。
+
+### 易踩坑 / 关键点
+- 在线版改动后必须**手动**重跑上面的 `wrangler pages deploy`，push 不会自动上线。
+- `cloudflare/` 子目录才是线上版源码；仓库根目录是桌面版。
