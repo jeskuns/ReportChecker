@@ -675,13 +675,6 @@ pyinstaller ReportChecker.spec
 借助 AI 开发
 
 
-## 📱 移动端 ISO 版式（≤768px）
-
-网页版与桌面版同一套 ISO 口径（白底 + ISO 蓝 #0B5FA5、正文 16px、44px 触控目标）。
-
-- 覆盖层：`webapp/static/iso-mobile.css`，由 `webapp/static/index.html` 以 `/static/iso-mobile.css` 绝对路径引入 —— 因此**必须通过 HTTP 访问**才能生效，直接双击打开 HTML 时样式与 viewport 都取不到。
-- 覆盖层负责统一：表单与按钮尺寸、结果卡片圆角与留白、弹窗与提示条、触控目标下限；组件级配色仍由原有样式决定。
-- 验收：起 `run_web.bat`（或 FastAPI 服务）后用 390×844 无头浏览器实测。当前基线：0 个 <40px 触控目标、无横向溢出。
 
 <!--DEPLOY_CARD-->
 ## 部署与推送（速查卡）
